@@ -18,7 +18,3 @@ linters:
       rules:
         - name: exported
           disabled: true  # too noisy for register definitions
-
-issues:
-  exclude-dirs:
-    - docs
