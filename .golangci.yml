@@ -1,0 +1,24 @@
+version: "2"
+
+linters:
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - gocritic
+    - misspell
+    - revive
+    - nilerr
+    - bodyclose
+
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true  # too noisy for register definitions
+
+issues:
+  exclude-dirs:
+    - docs

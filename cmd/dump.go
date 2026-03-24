@@ -28,7 +28,7 @@ var dumpCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		session := modbus.NewSession(client)
 		groupName := args[0]
@@ -186,15 +186,15 @@ func enumLabel(reg register.Register, values []uint16) string {
 		return ""
 	}
 	switch reg.Address {
-	case 0x0210:
+	case register.AddrMachineState:
 		return register.MachineState(values[0])
-	case 0x010B:
+	case register.AddrChargeStatus:
 		return register.ChargeStatus(values[0])
-	case 0xE004:
+	case register.AddrBatteryType:
 		return register.BatteryType(values[0])
-	case 0xE204:
+	case register.AddrOutputPriority:
 		return register.OutputPriority(values[0])
-	case 0xE20F:
+	case register.AddrChargerPriority:
 		return register.ChargerPriority(values[0])
 	}
 	return ""

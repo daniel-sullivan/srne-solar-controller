@@ -1,2 +1,20 @@
 [tools]
 go = "latest"
+golangci-lint = "latest"
+"pipx:pre-commit" = "latest"
+
+[tasks.lint]
+run = "golangci-lint run ./..."
+description = "Run golangci-lint"
+
+[tasks.test]
+run = "go test -race ./..."
+description = "Run all tests with race detector"
+
+[tasks.build]
+run = "go build ./..."
+description = "Build all packages"
+
+[tasks.check]
+depends = ["build", "test", "lint"]
+description = "Run build, test, and lint"

@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/daniel-sullivan/srne-solar-controller/interfaces/solarman"
 	"github.com/daniel-sullivan/srne-solar-controller/modbus"
-	"github.com/daniel-sullivan/srne-solar-controller/solarman"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ var scanCmd = &cobra.Command{
 		if err := client.Connect(); err != nil {
 			return fmt.Errorf("connect: %w", err)
 		}
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		fmt.Println("Scanning dongle traffic... (Ctrl+C to stop)")
 

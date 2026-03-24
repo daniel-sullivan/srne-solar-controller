@@ -2,7 +2,8 @@ package modbus
 
 import (
 	"context"
-	"strings"
+	"errors"
+	"net"
 	"sync"
 	"time"
 
@@ -30,6 +31,7 @@ type Lookup func(addr uint16) (uint16, error)
 // (common when the MODBUS bus is contended by other services).
 type Session struct {
 	Client Client
+	Ctx    context.Context // optional; defaults to context.Background()
 	mu     sync.Mutex
 	cache  map[uint16]uint16
 }
@@ -38,8 +40,16 @@ type Session struct {
 func NewSession(client Client) *Session {
 	return &Session{
 		Client: client,
+		Ctx:    context.Background(),
 		cache:  make(map[uint16]uint16),
 	}
+}
+
+func (s *Session) context() context.Context {
+	if s.Ctx != nil {
+		return s.Ctx
+	}
+	return context.Background()
 }
 
 func (s *Session) retryOpts() []backoff.RetryOption {
@@ -54,7 +64,7 @@ func (s *Session) retryOpts() []backoff.RetryOption {
 
 // ReadRegisters reads registers with automatic retry on timeout.
 func (s *Session) ReadRegisters(startAddr uint16, count uint16) ([]uint16, error) {
-	return retryOnTimeout(s.retryOpts(), func() ([]uint16, error) {
+	return retryOnTimeout(s.context(), s.retryOpts(), func() ([]uint16, error) {
 		return s.Client.ReadRegisters(startAddr, count)
 	})
 }
@@ -89,21 +99,25 @@ func (s *Session) Store(startAddr uint16, values []uint16) {
 	s.mu.Unlock()
 }
 
-// WriteSingleRegister writes a register with retry and invalidates the cache.
+// WriteSingleRegister writes a register with retry and invalidates the cache on success.
 func (s *Session) WriteSingleRegister(addr uint16, value uint16) error {
-	_, err := retryOnTimeout(s.retryOpts(), func() (struct{}, error) {
+	_, err := retryOnTimeout(s.context(), s.retryOpts(), func() (struct{}, error) {
 		return struct{}{}, s.Client.WriteSingleRegister(addr, value)
 	})
-	s.invalidate()
+	if err == nil {
+		s.invalidate()
+	}
 	return err
 }
 
-// WriteMultipleRegisters writes registers with retry and invalidates the cache.
+// WriteMultipleRegisters writes registers with retry and invalidates the cache on success.
 func (s *Session) WriteMultipleRegisters(startAddr uint16, values []uint16) error {
-	_, err := retryOnTimeout(s.retryOpts(), func() (struct{}, error) {
+	_, err := retryOnTimeout(s.context(), s.retryOpts(), func() (struct{}, error) {
 		return struct{}{}, s.Client.WriteMultipleRegisters(startAddr, values)
 	})
-	s.invalidate()
+	if err == nil {
+		s.invalidate()
+	}
 	return err
 }
 
@@ -115,8 +129,8 @@ func (s *Session) invalidate() {
 
 // retryOnTimeout retries fn with exponential backoff, but only for timeout errors.
 // Non-timeout errors (e.g., illegal address) are returned immediately via Permanent().
-func retryOnTimeout[T any](opts []backoff.RetryOption, fn func() (T, error)) (T, error) {
-	return backoff.Retry(context.Background(), func() (T, error) {
+func retryOnTimeout[T any](ctx context.Context, opts []backoff.RetryOption, fn func() (T, error)) (T, error) {
+	return backoff.Retry(ctx, func() (T, error) {
 		result, err := fn()
 		if err != nil && !isTimeout(err) {
 			return result, backoff.Permanent(err)
@@ -126,5 +140,6 @@ func retryOnTimeout[T any](opts []backoff.RetryOption, fn func() (T, error)) (T,
 }
 
 func isTimeout(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "timeout")
+	var netErr net.Error
+	return errors.As(err, &netErr) && netErr.Timeout()
 }

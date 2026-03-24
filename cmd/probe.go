@@ -40,7 +40,7 @@ With arguments, probes a custom hex range: probe 0xE000 0xE060`,
 		if err != nil {
 			return err
 		}
-		defer client.Close()
+		defer func() { _ = client.Close() }()
 
 		// Build known register lookup for annotation
 		known := buildKnownMap()
@@ -72,14 +72,50 @@ func init() {
 	rootCmd.AddCommand(probeCmd)
 }
 
+const probeBatchSize = 16
+
 func probeRange(client modbus.Client, name string, start, end uint16, known map[uint16]string) error {
 	fmt.Printf("=== %s (0x%04X-0x%04X) ===\n", name, start, end-1)
 
+	// Read all registers into a result map using batched reads with single-register fallback
+	type probeResult struct {
+		value uint16
+		err   error
+	}
+	results := make(map[uint16]probeResult)
+
+	for batchStart := start; batchStart < end; batchStart += probeBatchSize {
+		batchEnd := batchStart + probeBatchSize
+		if batchEnd > end {
+			batchEnd = end
+		}
+		count := batchEnd - batchStart
+
+		values, err := client.ReadRegisters(batchStart, count)
+		if err == nil {
+			for i, v := range values {
+				results[batchStart+uint16(i)] = probeResult{value: v}
+			}
+			continue
+		}
+
+		// Batch failed — fall back to individual reads
+		for addr := batchStart; addr < batchEnd; addr++ {
+			vals, err := client.ReadRegisters(addr, 1)
+			if err != nil {
+				results[addr] = probeResult{err: err}
+			} else {
+				results[addr] = probeResult{value: vals[0]}
+			}
+		}
+	}
+
+	// Display results in address order
 	var active, mapped, unmapped int
 	prevState := ""
 
 	for addr := start; addr < end; addr++ {
-		values, err := client.ReadRegisters(addr, 1)
+		r := results[addr]
 
 		regName := known[addr]
 		annotation := ""
@@ -87,17 +123,17 @@ func probeRange(client modbus.Client, name string, start, end uint16, known map[
 			annotation = fmt.Sprintf("  [%s]", regName)
 		}
 
-		if err != nil {
+		if r.err != nil {
 			unmapped++
 			state := "unmapped"
 			if prevState != state {
-				fmt.Printf("  0x%04X: UNMAPPED (%v)%s\n", addr, shortErr(err), annotation)
+				fmt.Printf("  0x%04X: UNMAPPED (%v)%s\n", addr, shortErr(r.err), annotation)
 			}
 			prevState = state
 			continue
 		}
 
-		raw := values[0]
+		raw := r.value
 		if raw != 0 {
 			active++
 			fmt.Printf("  0x%04X: %6d (0x%04X)  ACTIVE%s\n", addr, raw, raw, annotation)
@@ -107,7 +143,6 @@ func probeRange(client modbus.Client, name string, start, end uint16, known map[
 			if probeShowAll {
 				fmt.Printf("  0x%04X: %6d (0x%04X)  mapped%s\n", addr, raw, raw, annotation)
 			} else if prevState == "unmapped" || prevState == "" {
-				// Show first mapped register after unmapped boundary
 				fmt.Printf("  0x%04X: %6d (0x%04X)  mapped%s\n", addr, raw, raw, annotation)
 			}
 			prevState = "mapped"

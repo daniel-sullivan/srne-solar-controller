@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/daniel-sullivan/srne-solar-controller/modbus"
@@ -53,7 +54,7 @@ func NewClient(host string, port int, serial uint32, slaveID byte) *Client {
 
 // Connect opens a TCP connection to the dongle.
 func (c *Client) Connect() error {
-	addr := fmt.Sprintf("%s:%d", c.host, c.port)
+	addr := net.JoinHostPort(c.host, strconv.Itoa(c.port))
 	conn, err := net.DialTimeout("tcp", addr, c.timeout)
 	if err != nil {
 		return fmt.Errorf("connect to %s: %w", addr, err)
@@ -131,7 +132,7 @@ func (c *Client) probeSerial(modbusFrame []byte) error {
 		fmt.Printf("PROBE TX (%d bytes): % X\n", len(frame), frame)
 	}
 
-	c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	_ = c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
 	if _, err := c.conn.Write(frame); err != nil {
 		return fmt.Errorf("write: %w", err)
 	}
@@ -141,7 +142,7 @@ func (c *Client) probeSerial(modbusFrame []byte) error {
 	deadline := time.Now().Add(c.timeout)
 	total := 0
 	for time.Now().Before(deadline) {
-		c.conn.SetReadDeadline(deadline)
+		_ = c.conn.SetReadDeadline(deadline)
 		n, err := c.conn.Read(buf[total:])
 		if err != nil {
 			return fmt.Errorf("read: %w", err)
@@ -170,7 +171,7 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 		fmt.Printf("TX (%d bytes): % X\n", len(frame), frame)
 	}
 
-	c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
+	_ = c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
 	if _, err := c.conn.Write(frame); err != nil {
 		return nil, fmt.Errorf("write: %w", err)
 	}
@@ -184,7 +185,7 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 	deadline := time.Now().Add(c.timeout)
 
 	for time.Now().Before(deadline) {
-		c.conn.SetReadDeadline(deadline)
+		_ = c.conn.SetReadDeadline(deadline)
 		n, err := c.conn.Read(buf[total:])
 		if err != nil {
 			if total > consumed {
@@ -319,7 +320,7 @@ func (c *Client) ScanFrames(callback func(modbusFrame []byte) bool) error {
 	consumed := 0
 
 	for {
-		c.conn.SetReadDeadline(time.Now().Add(c.timeout))
+		_ = c.conn.SetReadDeadline(time.Now().Add(c.timeout))
 		n, err := c.conn.Read(buf[total:])
 		if err != nil {
 			return fmt.Errorf("read: %w", err)

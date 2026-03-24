@@ -29,6 +29,7 @@ const (
 	PackedTime    // packed year/month/day/hour/min/sec
 	PackedHourMin // high byte = hours, low byte = minutes
 	PackedHiLo    // high byte = value1, low byte = value2 (e.g., charge/discharge SOC)
+	ASCIILoByte   // one ASCII character per register in the low byte (SRNE serial numbers)
 )
 
 // ScaleFunc converts a raw register value to a scaled float.
@@ -67,7 +68,7 @@ var (
 	Voltage12V ScaleFunc = func(raw float64, lookup modbus.Lookup) float64 {
 		v := raw * 0.1
 		if lookup != nil {
-			if sysV, err := lookup(0xE003); err == nil && sysV > 0 {
+			if sysV, err := lookup(AddrSystemVoltage); err == nil && sysV > 0 {
 				v *= float64(sysV) / 12.0
 			}
 		}
@@ -91,6 +92,8 @@ func FormatValue(reg Register, values []uint16, lookup modbus.Lookup) string {
 		return formatScaled(float64(raw), reg, lookup)
 	case ASCII:
 		return decodeASCII(values)
+	case ASCIILoByte:
+		return decodeASCIILoByte(values)
 	case PackedTemp:
 		hi := int8(values[0] >> 8)
 		lo := int8(values[0] & 0xFF)
@@ -106,22 +109,41 @@ func FormatValue(reg Register, values []uint16, lookup modbus.Lookup) string {
 	}
 }
 
+// identityScale is a sentinel used to detect the identity scale function
+// without fragile float equality comparisons.
+var identityScale ScaleFunc = func(raw float64, _ modbus.Lookup) float64 { return raw }
+
+func init() {
+	Mul1 = identityScale
+}
+
 func formatScaled(raw float64, reg Register, lookup modbus.Lookup) string {
 	scale := reg.Scale
-	if scale == nil {
+	if scale == nil || isIdentityScale(scale) {
 		return fmt.Sprintf("%d %s", int64(raw), reg.Unit)
 	}
 	value := scale(raw, lookup)
-	if value == raw {
-		return fmt.Sprintf("%d %s", int64(raw), reg.Unit)
-	}
 	return fmt.Sprintf("%.1f %s", value, reg.Unit)
+}
+
+// isIdentityScale checks if a ScaleFunc is the identity (Mul1) by comparing
+// function pointers via reflect, avoiding float equality issues.
+func isIdentityScale(fn ScaleFunc) bool {
+	return fmt.Sprintf("%p", fn) == fmt.Sprintf("%p", identityScale)
 }
 
 func decodeASCII(values []uint16) string {
 	buf := make([]byte, len(values)*2)
 	for i, v := range values {
 		binary.BigEndian.PutUint16(buf[i*2:], v)
+	}
+	return strings.TrimRight(string(buf), "\x00 ")
+}
+
+func decodeASCIILoByte(values []uint16) string {
+	buf := make([]byte, len(values))
+	for i, v := range values {
+		buf[i] = byte(v & 0xFF)
 	}
 	return strings.TrimRight(string(buf), "\x00 ")
 }

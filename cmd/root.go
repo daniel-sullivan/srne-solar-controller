@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/daniel-sullivan/srne-solar-controller/interfaces/solarman"
 	"github.com/daniel-sullivan/srne-solar-controller/modbus"
-	"github.com/daniel-sullivan/srne-solar-controller/solarman"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +35,7 @@ func init() {
 	rootCmd.PersistentFlags().Uint8Var(&slaveID, "slave", 1, "MODBUS slave ID")
 	rootCmd.PersistentFlags().Uint32Var(&serial, "serial", 0, "Dongle serial number")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Print raw frame hex dumps")
-	rootCmd.MarkPersistentFlagRequired("host")
+	_ = rootCmd.MarkPersistentFlagRequired("host")
 }
 
 func newClient() (modbus.Client, error) {
