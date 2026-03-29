@@ -2,6 +2,7 @@ package solarman
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math/rand/v2"
 	"net"
@@ -10,6 +11,12 @@ import (
 
 	"github.com/daniel-sullivan/srne-solar-controller/modbus"
 )
+
+// errNoInnerData indicates a valid V5 frame was received but the inner MODBUS
+// payload was too short to be a real response. The Solarman dongle sends these
+// both as an ACK (immediately) and as a "device did not respond" notification
+// (after its internal timeout of ~5 seconds).
+var errNoInnerData = errors.New("no MODBUS data in V5 frame")
 
 const (
 	startMarker = 0xA5
@@ -75,6 +82,55 @@ func (c *Client) Close() error {
 		return c.conn.Close()
 	}
 	return nil
+}
+
+// ProbeSlaveID discovers the correct slave ID for the device behind this dongle.
+// It tries the currently configured slave ID first, then scans IDs 1 through maxID.
+// A shorter timeout is used for probing. On success, the client's slave ID is set
+// to the discovered ID and returned.
+func (c *Client) ProbeSlaveID(maxID byte) (byte, error) {
+	if c.conn == nil {
+		return 0, fmt.Errorf("not connected")
+	}
+
+	origTimeout := c.timeout
+	origSlaveID := c.slaveID
+	c.timeout = 6 * time.Second
+	defer func() { c.timeout = origTimeout }()
+
+	// Try current slave ID first.
+	if id, ok := c.trySlaveID(c.slaveID); ok {
+		return id, nil
+	}
+
+	// Scan remaining IDs.
+	for id := byte(1); id <= maxID; id++ {
+		if id == origSlaveID {
+			continue
+		}
+		if found, ok := c.trySlaveID(id); ok {
+			return found, nil
+		}
+	}
+
+	c.slaveID = origSlaveID
+	return 0, fmt.Errorf("no device responded on slave IDs 1-%d", maxID)
+}
+
+// trySlaveID attempts a single register read with the given slave ID.
+// Returns the ID and true if the device responded (even with a MODBUS error).
+func (c *Client) trySlaveID(id byte) (byte, bool) {
+	c.slaveID = id
+	_, err := c.ReadRegisters(0x000A, 1)
+	if err == nil {
+		return id, true
+	}
+	// A MODBUS error (illegal address, etc.) still means the device responded.
+	var modbusErr *modbus.ModbusError
+	if errors.As(err, &modbusErr) {
+		return id, true
+	}
+	return 0, false
 }
 
 // ReadRegisters reads holding registers from the inverter.
@@ -178,10 +234,13 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 
 	// Read frames until we get one with valid MODBUS data.
 	// The dongle first sends a short ack frame, then later the actual
-	// data frame once the inverter responds on the RS485 bus.
+	// data frame once the inverter responds on the RS485 bus. If the
+	// inverter doesn't respond, the dongle sends a second short frame
+	// after its internal timeout (~5s).
 	buf := make([]byte, 4096)
 	total := 0
 	consumed := 0
+	emptyFrames := 0
 	deadline := time.Now().Add(c.timeout)
 
 	for time.Now().Before(deadline) {
@@ -201,6 +260,12 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 			if err != nil {
 				if c.Debug {
 					fmt.Printf("  skip: %v\n", err)
+				}
+				if errors.Is(err, errNoInnerData) {
+					emptyFrames++
+					if emptyFrames >= 2 {
+						return nil, fmt.Errorf("device did not respond")
+					}
 				}
 				continue
 			}
@@ -290,7 +355,7 @@ func (c *Client) unwrapFrame(data []byte) ([]byte, error) {
 
 	// Must be at least 5 bytes for a minimal MODBUS response (slave + func + 1 byte + CRC)
 	if len(inner) < 5 {
-		return nil, fmt.Errorf("inner frame too short (%d bytes)", len(inner))
+		return nil, fmt.Errorf("%w (%d bytes)", errNoInnerData, len(inner))
 	}
 
 	// Validate MODBUS CRC

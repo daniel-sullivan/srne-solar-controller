@@ -44,5 +44,18 @@ func newClient() (modbus.Client, error) {
 	if err := client.Connect(); err != nil {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
+
+	// When --slave wasn't explicitly set, verify the default responds
+	// and scan for the correct slave ID if it doesn't.
+	if !rootCmd.PersistentFlags().Changed("slave") {
+		found, err := client.ProbeSlaveID(10)
+		if err != nil {
+			return nil, err
+		}
+		if found != slaveID {
+			fmt.Fprintf(os.Stderr, "auto-detected slave ID %d (use --slave %d to skip scan)\n", found, found)
+		}
+	}
+
 	return client, nil
 }
