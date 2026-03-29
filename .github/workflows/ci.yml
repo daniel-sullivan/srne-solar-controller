@@ -7,7 +7,7 @@ on:
     branches: [master]
 
 permissions:
-  contents: write
+  contents: read
   checks: write
   pull-requests: write
 
@@ -25,22 +25,27 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test -race -coverprofile=coverage.out -covermode=atomic ./... -v 2>&1 | tee test-output.txt | go tool test2json > test-report.json
+        run: go test -race -coverprofile=coverage.out -covermode=atomic -json ./... > test-report.json
 
       - name: Test report
         if: always()
-        uses: dorny/test-reporter@v2
+        uses: dorny/test-reporter@v3
         with:
           name: Go Tests
           path: test-report.json
-          reporter: go-json
+          reporter: golang-json
 
       - name: Coverage report
-        if: always()
-        uses: ncruces/go-coverage-report@v0
+        if: always() && github.event_name == 'pull_request'
+        uses: vladopajic/go-test-coverage@v2
         with:
-          coverage-file: coverage.out
-          reuse-go: true
+          profile: coverage.out
+          threshold-file: 0
+          threshold-package: 0
+          threshold-total: 0
+          git-token: ${{ github.token }}
+          git-branch-name: badges
+          git-no-badge: true
 
       - name: Vet
         run: go vet ./...
