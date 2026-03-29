@@ -6,6 +6,11 @@ on:
   pull_request:
     branches: [master]
 
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -20,7 +25,22 @@ jobs:
         run: go build ./...
 
       - name: Test
-        run: go test -race -coverprofile=coverage.out ./...
+        run: go test -race -coverprofile=coverage.out -covermode=atomic ./... -v 2>&1 | tee test-output.txt | go tool test2json > test-report.json
+
+      - name: Test report
+        if: always()
+        uses: dorny/test-reporter@v2
+        with:
+          name: Go Tests
+          path: test-report.json
+          reporter: go-json
+
+      - name: Coverage report
+        if: always()
+        uses: ncruces/go-coverage-report@v0
+        with:
+          coverage-file: coverage.out
+          reuse-go: true
 
       - name: Vet
         run: go vet ./...

@@ -12,6 +12,11 @@ import (
 // Sim is a live-simulated inverter that ticks internally, updating
 // registers to mimic a real ASP48100U200-H. Embeds Inverter for
 // the modbus.Client interface.
+//
+// In addition to the time-based background simulation (Start/Tick),
+// Sim supports deterministic "poke" methods (SetSOC, SetPV, SetLoad, etc.)
+// that immediately update all related registers without jitter. This makes
+// Sim usable both as a live simulator and as a deterministic test fixture.
 type Sim struct {
 	*Inverter
 
@@ -19,9 +24,16 @@ type Sim struct {
 	ticker  *time.Ticker
 	done    chan struct{}
 	simTime time.Time // virtual clock (allows test control)
-	soc     float64   // fractional SOC for smooth drift
-	loadW   float64   // current load in watts
-	faultQ  []uint16  // queued fault codes to inject
+
+	// Internal state — mutated by poke methods and step()
+	soc          float64  // fractional SOC for smooth drift
+	loadW        float64  // current load in watts
+	pv1W         float64  // PV1 power (negative = auto from curve)
+	pv2W         float64  // PV2 power (negative = auto from curve)
+	pvManual     bool     // true when PV set explicitly via SetPV
+	gridV        float64  // grid voltage (0 = off-grid)
+	parallelMode uint16   // parallel mode register value
+	faultQ       []uint16 // queued fault codes to inject
 }
 
 // NewSim creates a Sim pre-loaded with realistic register values for
@@ -33,6 +45,8 @@ func NewSim() *Sim {
 		simTime:  time.Now(),
 		soc:      85,
 		loadW:    500,
+		pv1W:     1800,
+		pv2W:     1200,
 	}
 	return s
 }
@@ -71,6 +85,8 @@ func (s *Sim) Tick() {
 	s.step()
 }
 
+// --- Poke methods: deterministic, immediate register updates ---
+
 // SetSOC directly sets the battery state of charge (0-100).
 func (s *Sim) SetSOC(pct float64) {
 	s.mu.Lock()
@@ -79,11 +95,39 @@ func (s *Sim) SetSOC(pct float64) {
 	s.syncRegisters()
 }
 
-// SetLoad sets the current AC load in watts.
+// SetLoad sets the current AC load in watts and updates all related registers.
 func (s *Sim) SetLoad(watts float64) {
 	s.mu.Lock()
 	s.loadW = watts
 	s.mu.Unlock()
+	s.syncRegisters()
+}
+
+// SetPV sets PV1 and PV2 power in watts and updates all related registers.
+// This overrides the time-based PV curve until the next Tick/Start cycle.
+func (s *Sim) SetPV(pv1Watts, pv2Watts float64) {
+	s.mu.Lock()
+	s.pv1W = pv1Watts
+	s.pv2W = pv2Watts
+	s.pvManual = true
+	s.mu.Unlock()
+	s.syncRegisters()
+}
+
+// SetGridVoltage sets the grid input voltage (0 = off-grid) and updates registers.
+func (s *Sim) SetGridVoltage(volts float64) {
+	s.mu.Lock()
+	s.gridV = volts
+	s.mu.Unlock()
+	s.syncRegisters()
+}
+
+// SetParallelMode sets the parallel mode register value.
+func (s *Sim) SetParallelMode(mode uint16) {
+	s.mu.Lock()
+	s.parallelMode = mode
+	s.mu.Unlock()
+	s.SetRegister(register.AddrParallelMode, mode)
 }
 
 // TriggerFault queues a fault code to be applied on the next tick.
@@ -106,6 +150,8 @@ func (s *Sim) ClearFaults() {
 	s.SetRegister(register.AddrMachineState, 5) // back to inverter mode
 }
 
+// --- Internal simulation ---
+
 func (s *Sim) loop(ticker *time.Ticker, done chan struct{}) {
 	for {
 		select {
@@ -120,18 +166,29 @@ func (s *Sim) loop(ticker *time.Ticker, done chan struct{}) {
 	}
 }
 
+// step advances the simulation one tick with jitter (for live simulation).
 func (s *Sim) step() {
 	s.mu.Lock()
 	hour := s.simTime.Hour()
 	load := s.loadW
 	faults := s.faultQ
 	s.faultQ = nil
+	pvManual := s.pvManual
+	pv1 := s.pv1W
+	pv2 := s.pv2W
 	s.mu.Unlock()
 
-	// PV generation follows a bell curve peaking at solar noon (13:00)
-	pvW := pvCurve(hour) + jitter(50)
-	pv1W := pvW * 0.6
-	pv2W := pvW * 0.4
+	// PV generation: use manual values or bell curve
+	var pv1W, pv2W float64
+	if pvManual {
+		pv1W = pv1
+		pv2W = pv2
+	} else {
+		pvW := pvCurve(hour) + jitter(50)
+		pv1W = pvW * 0.6
+		pv2W = pvW * 0.4
+	}
+	pvW := pv1W + pv2W
 
 	// Net power: PV charging minus load discharging
 	netW := pvW - load
@@ -195,14 +252,95 @@ func (s *Sim) step() {
 	}
 }
 
+// syncRegisters recomputes all derived register values from the current
+// internal state, without jitter. Used by the poke methods for deterministic output.
 func (s *Sim) syncRegisters() {
 	s.mu.Lock()
 	soc := s.soc
+	load := s.loadW
+	pv1W := s.pv1W
+	pv2W := s.pv2W
+	gridV := s.gridV
 	s.mu.Unlock()
 
+	pvW := pv1W + pv2W
+
+	// Battery voltage: LiFePO4 48V curve (44V empty → 54.4V full)
 	battV := 44.0 + (soc/100.0)*10.4
+	netW := pvW - load
+	battI := netW / battV
+
 	s.SetRegister(register.AddrBatterySOC, uint16(soc))
 	s.SetRegister(register.AddrBatteryVoltage, uint16(battV*10))
+	s.SetRegister(register.AddrBatteryCurrent, uint16(int16(battI*10)))
+
+	// PV — derive voltage/current from power at typical string voltages
+	const pv1Vnom = 90.0
+	const pv2Vnom = 85.0
+	s.SetRegister(register.AddrPV1Voltage, uint16(pv1Vnom*10))
+	s.SetRegister(register.AddrPV1Power, uint16(max(0, pv1W)))
+	if pv1W > 0 {
+		s.SetRegister(register.AddrPV1Current, uint16(pv1W/pv1Vnom*10))
+	} else {
+		s.SetRegister(register.AddrPV1Current, 0)
+	}
+	s.SetRegister(register.AddrPV2Voltage, uint16(pv2Vnom*10))
+	s.SetRegister(register.AddrPV2Power, uint16(max(0, pv2W)))
+	if pv2W > 0 {
+		s.SetRegister(register.AddrPV2Current, uint16(pv2W/pv2Vnom*10))
+	} else {
+		s.SetRegister(register.AddrPV2Current, 0)
+	}
+	s.SetRegister(register.AddrTotalChargePower, uint16(max(0, pvW)))
+
+	// Load split evenly across L1/L2
+	halfLoad := load * 0.5
+	s.SetRegister(register.AddrLoadPowerL1, uint16(halfLoad))
+	s.SetRegister(register.AddrLoadPowerL2, uint16(halfLoad))
+	s.SetRegister(register.AddrLoadApparentPowerL1, uint16(halfLoad*1.02))
+	s.SetRegister(register.AddrLoadApparentPowerL2, uint16(halfLoad*1.02))
+	if halfLoad > 0 {
+		s.SetRegister(register.AddrLoadCurrentL1, uint16(halfLoad/120.0*10))
+		s.SetRegister(register.AddrLoadCurrentL2, uint16(halfLoad/120.0*10))
+	} else {
+		s.SetRegister(register.AddrLoadCurrentL1, 0)
+		s.SetRegister(register.AddrLoadCurrentL2, 0)
+	}
+
+	// Inverter output
+	s.SetRegister(register.AddrInverterVoltageL1, 1200) // 120.0V
+	s.SetRegister(register.AddrInverterVoltageL2, 1200)
+	s.SetRegister(register.AddrInverterFrequency, 6000) // 60.00Hz
+	s.SetRegister(register.AddrBusVoltage, 3800)        // 380.0V
+
+	// Heatsink temps: deterministic from load
+	ambient := 25.0
+	s.SetRegister(register.AddrTemps, packTemp(int8(ambient), int8(ambient+2)))
+	s.SetRegister(register.AddrHeatsinkATemp, uint16(int16((ambient+load/200.0)*10)))
+	s.SetRegister(register.AddrHeatsinkBTemp, uint16(int16((ambient+load/150.0)*10)))
+	s.SetRegister(register.AddrHeatsinkCTemp, uint16(int16((ambient+5)*10)))
+	s.SetRegister(register.AddrHeatsinkDTemp, uint16(int16(ambient*10)))
+
+	// Grid
+	s.SetRegister(register.AddrGridVoltageL1, uint16(gridV*10))
+	s.SetRegister(register.AddrGridVoltageL2, uint16(gridV*10))
+
+	// Charge status
+	switch {
+	case battI > 0.5:
+		s.SetRegister(register.AddrChargeStatus, 1) // quick charge
+	case battI > 0:
+		s.SetRegister(register.AddrChargeStatus, 2) // constant voltage
+	default:
+		s.SetRegister(register.AddrChargeStatus, 0) // off
+	}
+
+	// Machine state
+	if gridV > 0 {
+		s.SetRegister(register.AddrMachineState, 4) // mains mode
+	} else {
+		s.SetRegister(register.AddrMachineState, 5) // inverter mode
+	}
 }
 
 // pvCurve returns simulated PV output in watts for a given hour (0-23).
@@ -266,41 +404,6 @@ func defaultRegisters() map[uint16]uint16 {
 		register.AddrPV2Current:         140,
 		register.AddrPV2Power:           1200,
 
-		// Inverter data
-		register.AddrFaultBits:           0,
-		register.AddrFaultBits + 1:       0,
-		register.AddrFaultBitsExt:        0,
-		register.AddrFaultBitsExt + 1:    0,
-		register.AddrFaultCode1:          0,
-		register.AddrFaultCode2:          0,
-		register.AddrFaultCode3:          0,
-		register.AddrFaultCode4:          0,
-		register.AddrMachineState:        5,    // inverter mode
-		register.AddrBusVoltage:          3800, // 380.0V
-		register.AddrGridVoltageL1:       0,    // off-grid
-		register.AddrGridCurrentL1:       0,
-		register.AddrGridFrequency:       0,
-		register.AddrInverterVoltageL1:   1200, // 120.0V
-		register.AddrInverterCurrentL1:   42,   // 4.2A
-		register.AddrInverterFrequency:   6000, // 60.00Hz
-		register.AddrLoadCurrentL1:       42,
-		register.AddrLoadPowerFactor:     980,
-		register.AddrLoadPowerL1:         500,
-		register.AddrLoadApparentPowerL1: 510,
-		register.AddrMainsChargeCurrent:  0,
-		register.AddrLoadRatioL1:         5,
-		register.AddrHeatsinkATemp:       350, // 35.0°C
-		register.AddrHeatsinkBTemp:       380, // 38.0°C
-		register.AddrHeatsinkCTemp:       300, // 30.0°C
-		register.AddrHeatsinkDTemp:       250, // 25.0°C
-		register.AddrPVChargeCurrentBatt: 200,
-		register.AddrInverterVoltageL2:   1200,
-		register.AddrInverterCurrentL2:   42,
-		register.AddrLoadCurrentL2:       42,
-		register.AddrLoadPowerL2:         500,
-		register.AddrLoadApparentPowerL2: 510,
-		register.AddrLoadRatioL2:         5,
-
 		// Battery settings
 		register.AddrPVChargeCurrentLimit:  800, // 80.0A
 		register.AddrNominalBatteryCapAH:   100, // 100AH
@@ -321,17 +424,6 @@ func defaultRegisters() map[uint16]uint16 {
 		register.AddrSOCSwitchToMains:      15,
 		register.AddrSOCSwitchToBattery:    25,
 
-		// Inverter settings
-		register.AddrOutputPriority:        0,    // SOL
-		register.AddrMainsChargeCurrentLim: 250,  // 25.0A
-		register.AddrOutputVoltage:         1200, // 120.0V
-		register.AddrOutputFrequency:       6000, // 60.00Hz
-		register.AddrMaxChargeCurrent:      800,  // 80.0A
-		register.AddrChargerPriority:       0,    // CSO
-		register.AddrBMSProtocol:           1,
-		register.AddrBMSCommunicationEn:    1,
-		register.AddrBMSErrorStopEnable:    1,
-
 		// Statistics
 		register.AddrPVGenerationToday:     150, // 15.0kWh
 		register.AddrLoadConsumptionToday:  120, // 12.0kWh
@@ -346,13 +438,79 @@ func defaultRegisters() map[uint16]uint16 {
 		regs[register.AddrProductModel+uint16(i)] = uint16(model[i*2])<<8 | uint16(model[i*2+1])
 	}
 
-	// Fill serial number ASCII (20 registers)
-	serial := "MOCK000012345678    "
+	// Fill serial number (ASCIILoByte — one char in low byte per register)
+	serial := "MOCK000012345678XXXX"
 	for i := 0; i < 20; i++ {
-		if i*2+1 < len(serial) {
-			regs[register.AddrSerialNumber+uint16(i)] = uint16(serial[i*2])<<8 | uint16(serial[i*2+1])
+		regs[register.AddrSerialNumber+uint16(i)] = uint16(serial[i])
+	}
+
+	// Fill product info gaps for bulk reader (0x000A-0x0048)
+	for addr := uint16(0x000A); addr <= 0x0048; addr++ {
+		if _, ok := regs[addr]; !ok {
+			regs[addr] = 0
 		}
 	}
+
+	// Inverter data — fill full range 0x0200-0x0239 for bulk reader gap bridging
+	for addr := uint16(0x0200); addr <= 0x0239; addr++ {
+		regs[addr] = 0
+	}
+	regs[register.AddrMachineState] = 5  // inverter mode
+	regs[register.AddrBusVoltage] = 3800 // 380.0V
+	regs[register.AddrInverterVoltageL1] = 1200
+	regs[register.AddrInverterCurrentL1] = 42
+	regs[register.AddrInverterFrequency] = 6000
+	regs[register.AddrLoadCurrentL1] = 42
+	regs[register.AddrLoadPowerFactor] = 980
+	regs[register.AddrLoadPowerL1] = 500
+	regs[register.AddrLoadApparentPowerL1] = 510
+	regs[register.AddrLoadRatioL1] = 5
+	regs[register.AddrHeatsinkATemp] = 350
+	regs[register.AddrHeatsinkBTemp] = 380
+	regs[register.AddrHeatsinkCTemp] = 300
+	regs[register.AddrHeatsinkDTemp] = 250
+	regs[register.AddrPVChargeCurrentBatt] = 200
+	regs[register.AddrInverterVoltageL2] = 1200
+	regs[register.AddrInverterCurrentL2] = 42
+	regs[register.AddrLoadCurrentL2] = 42
+	regs[register.AddrLoadPowerL2] = 500
+	regs[register.AddrLoadApparentPowerL2] = 510
+	regs[register.AddrLoadRatioL2] = 5
+
+	// Inverter settings — fill full range 0xE200-0xE221
+	for addr := uint16(0xE200); addr <= 0xE221; addr++ {
+		regs[addr] = 0
+	}
+	regs[register.AddrInvRS485Address] = 1
+	regs[register.AddrOutputPriority] = 0
+	regs[register.AddrMainsChargeCurrentLim] = 250
+	regs[register.AddrOutputVoltage] = 1200
+	regs[register.AddrOutputFrequency] = 6000
+	regs[register.AddrMaxChargeCurrent] = 800
+	regs[register.AddrChargerPriority] = 0
+	regs[register.AddrBMSProtocol] = 1
+	regs[register.AddrBMSCommunicationEn] = 1
+	regs[register.AddrBMSErrorStopEnable] = 1
+
+	// Statistics — fill full range 0xF000-0xF04B
+	for addr := uint16(0xF000); addr <= 0xF04B; addr++ {
+		if _, ok := regs[addr]; !ok {
+			regs[addr] = 0
+		}
+	}
+	// Accumulated stats (U32 pairs)
+	regs[register.AddrAccumBatteryCharge] = 5000
+	regs[register.AddrAccumBatteryCharge+1] = 0
+	regs[register.AddrAccumBatteryDischarge] = 4500
+	regs[register.AddrAccumBatteryDischarge+1] = 0
+	regs[register.AddrAccumPVGeneration] = 10000
+	regs[register.AddrAccumPVGeneration+1] = 0
+	regs[register.AddrAccumLoadConsumption] = 8000
+	regs[register.AddrAccumLoadConsumption+1] = 0
+	regs[register.AddrAccumMainsCharge] = 0
+	regs[register.AddrAccumMainsCharge+1] = 0
+	regs[register.AddrAccumInverterHours] = 8000
+	regs[register.AddrAccumBypassHours] = 100
 
 	return regs
 }
