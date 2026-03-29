@@ -44,8 +44,7 @@ jobs:
           threshold-package: 0
           threshold-total: 0
           git-token: ${{ github.token }}
-          git-branch-name: badges
-          git-no-badge: true
+          git-branch: badges
 
       - name: Vet
         run: go vet ./...
