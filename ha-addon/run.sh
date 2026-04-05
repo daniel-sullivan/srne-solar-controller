@@ -36,7 +36,10 @@ done
 MQTT_BROKER=""
 MQTT_USER=""
 MQTT_PASS=""
-MQTT_PREFIX=$(bashio::config 'mqtt_topic_prefix')
+MQTT_PREFIX="homeassistant"
+if bashio::config.has_value 'mqtt_topic_prefix'; then
+    MQTT_PREFIX=$(bashio::config 'mqtt_topic_prefix')
+fi
 
 # Try HA Supervisor MQTT service first
 if bashio::services.available "mqtt"; then

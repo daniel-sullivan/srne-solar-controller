@@ -28,10 +28,8 @@ Install the add-on, then configure your inverter connection(s) in the add-on set
 | `inverters[].slave_id` | MODBUS slave ID (default 1) |
 | `inverters[].serial` | Dongle serial number (0 = auto-detect) |
 | `poll_interval` | Seconds between polling cycles (default 10) |
-| `mqtt_topic_prefix` | HA discovery prefix (default `homeassistant`) |
-| `mqtt_broker` | Manual broker URL override (auto-detected from Mosquitto add-on) |
-| `mqtt_username` | Manual broker username override |
-| `mqtt_password` | Manual broker password override |
+
+MQTT is auto-configured from the Mosquitto add-on. Optional overrides (`mqtt_broker`, `mqtt_topic_prefix`, `mqtt_username`, `mqtt_password`) are available for external brokers.
 
 Start the add-on. Sensor and control entities appear automatically under the MQTT integration.
 

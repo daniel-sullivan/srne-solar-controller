@@ -28,10 +28,6 @@ options:
       slave_id: 1
       serial: 0
   poll_interval: 10
-  mqtt_topic_prefix: homeassistant
-  mqtt_broker: ""
-  mqtt_username: ""
-  mqtt_password: ""
 schema:
   inverters:
     - host: str
@@ -39,7 +35,7 @@ schema:
       slave_id: "int(1,247)"
       serial: "int(0,)?"
   poll_interval: "int(1,3600)"
-  mqtt_topic_prefix: str
+  mqtt_topic_prefix: str?
   mqtt_broker: url?
   mqtt_username: str?
   mqtt_password: password?
