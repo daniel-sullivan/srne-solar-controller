@@ -7,6 +7,7 @@ import (
 	"html/template"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/daniel-sullivan/srne-solar-controller/inverter"
@@ -92,6 +93,8 @@ func (ws *WebServer) Handler() http.Handler {
 	mux.HandleFunc("GET /api/snapshot", ws.handleAPISnapshot)
 	mux.HandleFunc("GET /api/settings", ws.handleAPISettings)
 	mux.HandleFunc("GET /api/faults", ws.handleAPIFaults)
+	mux.HandleFunc("GET /api/entities", ws.handleAPIEntities)
+	mux.HandleFunc("POST /api/controls/{key}", ws.handleAPIControlWrite)
 
 	// SSE stream
 	mux.HandleFunc("GET /api/snapshot/stream", ws.handleSSE)
@@ -242,6 +245,162 @@ func (ws *WebServer) handleAPIFaults(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = json.NewEncoder(w).Encode(faults)
+}
+
+func (ws *WebServer) handleAPIEntities(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+
+	snap := ws.hub.Latest()
+	settings := ws.hub.Settings()
+
+	if settings != nil {
+		ws.hub.InitChargerPriority(settings)
+	}
+
+	// Build sensor list with current values
+	var snapMap map[string]any
+	if snap != nil {
+		data, _ := json.Marshal(snap)
+		_ = json.Unmarshal(data, &snapMap)
+	}
+
+	type sensorEntity struct {
+		Key         string `json:"key"`
+		Name        string `json:"name"`
+		Unit        string `json:"unit,omitempty"`
+		DeviceClass string `json:"device_class,omitempty"`
+		StateClass  string `json:"state_class,omitempty"`
+		Icon        string `json:"icon,omitempty"`
+		ValuePath   string `json:"value_path"`
+		Value       any    `json:"value"`
+	}
+	type switchEntity struct {
+		Key   string `json:"key"`
+		Name  string `json:"name"`
+		Icon  string `json:"icon,omitempty"`
+		State string `json:"state"`
+	}
+	type numberEntity struct {
+		Key   string  `json:"key"`
+		Name  string  `json:"name"`
+		Icon  string  `json:"icon,omitempty"`
+		Unit  string  `json:"unit,omitempty"`
+		Field string  `json:"field"`
+		Min   float64 `json:"min"`
+		Max   float64 `json:"max"`
+		Step  float64 `json:"step"`
+		Value string  `json:"value"`
+	}
+	type selectEntity struct {
+		Key     string   `json:"key"`
+		Name    string   `json:"name"`
+		Icon    string   `json:"icon,omitempty"`
+		Field   string   `json:"field"`
+		Options []string `json:"options"`
+		Value   string   `json:"value"`
+	}
+
+	sensors := make([]sensorEntity, 0, len(systemSensors))
+	for _, s := range systemSensors {
+		se := sensorEntity{
+			Key:         s.Key,
+			Name:        s.Name,
+			Unit:        s.Unit,
+			DeviceClass: s.DeviceClass,
+			StateClass:  s.StateClass,
+			Icon:        s.Icon,
+			ValuePath:   s.ValuePath,
+			Value:       walkJSON(snapMap, s.ValuePath),
+		}
+		sensors = append(sensors, se)
+	}
+
+	switches := make([]switchEntity, 0, len(controlSwitches))
+	for _, sw := range controlSwitches {
+		state := ""
+		if settings != nil {
+			state = sw.StateFunc(settings)
+		}
+		switches = append(switches, switchEntity{Key: sw.Key, Name: sw.Name, Icon: sw.Icon, State: state})
+	}
+
+	numbers := make([]numberEntity, 0, len(controlNumbers))
+	for _, num := range controlNumbers {
+		value := ""
+		if settings != nil {
+			value = num.StateFunc(settings)
+		}
+		numbers = append(numbers, numberEntity{
+			Key: num.Key, Name: num.Name, Icon: num.Icon, Unit: num.Unit,
+			Field: num.Field, Min: num.Min, Max: num.Max, Step: num.Step, Value: value,
+		})
+	}
+
+	selects := make([]selectEntity, 0, len(controlSelects))
+	for _, sel := range controlSelects {
+		value := ""
+		if settings != nil {
+			value = sel.StateFunc(settings)
+		}
+		selects = append(selects, selectEntity{
+			Key: sel.Key, Name: sel.Name, Icon: sel.Icon,
+			Field: sel.Field, Options: sel.Options, Value: value,
+		})
+	}
+
+	resp := map[string]any{
+		"sensors":  sensors,
+		"switches": switches,
+		"numbers":  numbers,
+		"selects":  selects,
+	}
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (ws *WebServer) handleAPIControlWrite(w http.ResponseWriter, r *http.Request) {
+	key := r.PathValue("key")
+
+	var body struct {
+		Value string `json:"value"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), controlWriteTimeout)
+	defer cancel()
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := executeControl(ctx, ws.hub, key, body.Value); err != nil {
+		slog.Error("control write failed", "key", key, "error", err)
+		w.WriteHeader(http.StatusInternalServerError)
+		_ = json.NewEncoder(w).Encode(map[string]any{"ok": false, "error": err.Error()})
+		return
+	}
+
+	slog.Info("control written", "key", key, "value", body.Value)
+	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true})
+}
+
+// walkJSON traverses a dot-separated path in a JSON map.
+func walkJSON(m map[string]any, path string) any {
+	if m == nil {
+		return nil
+	}
+	parts := strings.Split(path, ".")
+	var current any = m
+	for _, p := range parts {
+		cm, ok := current.(map[string]any)
+		if !ok {
+			return nil
+		}
+		current, ok = cm[p]
+		if !ok {
+			return nil
+		}
+	}
+	return current
 }
 
 // faultCodeName wraps register.FaultCodeName for templates.

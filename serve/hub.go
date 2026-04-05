@@ -36,6 +36,10 @@ type Hub struct {
 	subscribers map[*Subscriber]struct{}
 
 	writeCh chan writeRequest
+
+	// Virtual switch state: saved charger priority for charge_from_mains toggle
+	prevChargerPriority     string
+	prevChargerPriorityInit bool
 }
 
 // NewHub creates a hub that polls the system at the given interval.
@@ -91,6 +95,41 @@ func (h *Hub) Settings() *inverter.Settings {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
 	return h.settings
+}
+
+// SaveChargerPriority saves the current charger priority for the charge_from_mains toggle.
+// If the current value is already CUB (1), it is not saved (would be a no-op restore).
+func (h *Hub) SaveChargerPriority(current uint16) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if current != 1 {
+		h.prevChargerPriority = fmt.Sprintf("%d", current)
+	}
+	h.prevChargerPriorityInit = true
+}
+
+// RestoreChargerPriority returns the saved charger priority value.
+// Defaults to "0" (CSO/PV Preferred) if no value was saved.
+func (h *Hub) RestoreChargerPriority() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	if h.prevChargerPriority == "" {
+		return "0"
+	}
+	return h.prevChargerPriority
+}
+
+// InitChargerPriority initializes the saved charger priority from settings on first call.
+func (h *Hub) InitChargerPriority(settings *inverter.Settings) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.prevChargerPriorityInit || settings == nil {
+		return
+	}
+	h.prevChargerPriorityInit = true
+	if settings.Inverter.ChargerPriority != 1 {
+		h.prevChargerPriority = fmt.Sprintf("%d", settings.Inverter.ChargerPriority)
+	}
 }
 
 // WriteSetting sends a write request to the hub's run loop, ensuring it's

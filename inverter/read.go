@@ -23,6 +23,12 @@ func readUnitSnapshot(session *modbus.Session) (UnitSnapshot, error) {
 		errs = append(errs, fmt.Sprintf("stats: %v", err))
 	}
 
+	// Compute battery energy (kWh) from Ah * voltage.
+	if snap.Battery.Voltage > 0 {
+		snap.Stats.BatteryChargeEnergy = snap.Stats.BatteryChargeToday * snap.Battery.Voltage / 1000
+		snap.Stats.BatteryDischargeEnergy = snap.Stats.BatteryDischargeToday * snap.Battery.Voltage / 1000
+	}
+
 	snap.Errors = errs
 	return snap, nil
 }

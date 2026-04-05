@@ -13,6 +13,10 @@ import (
 type settingField struct {
 	Addr       uint16
 	EncodeFunc func(value string, sysVoltage float64) (uint16, error)
+	// For packed registers: non-zero PackedMask enables read-modify-write.
+	// Only the bits selected by PackedMask are written; the rest are preserved.
+	PackedMask  uint16
+	PackedShift uint8
 }
 
 // encode helpers
@@ -82,85 +86,89 @@ func encode12VBase(value string, sysVoltage float64) (uint16, error) {
 // settingFields maps field names to register addresses and encoding functions.
 var settingFields = map[string]settingField{
 	// Inverter output
-	"output_voltage":           {register.AddrOutputVoltage, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
-	"output_frequency":         {register.AddrOutputFrequency, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.01) }},
-	"output_priority":          {register.AddrOutputPriority, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charger_priority":         {register.AddrChargerPriority, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"max_charge_current":       {register.AddrMaxChargeCurrent, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
-	"mains_charge_current_lim": {register.AddrMainsChargeCurrentLim, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
-	"max_line_current":         {register.AddrMaxLineCurrent, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
-	"derate_power":             {register.AddrDeratePower, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"output_voltage":           {Addr: register.AddrOutputVoltage, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
+	"output_frequency":         {Addr: register.AddrOutputFrequency, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.01) }},
+	"output_priority":          {Addr: register.AddrOutputPriority, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charger_priority":         {Addr: register.AddrChargerPriority, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"max_charge_current":       {Addr: register.AddrMaxChargeCurrent, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
+	"mains_charge_current_lim": {Addr: register.AddrMainsChargeCurrentLim, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
+	"max_line_current":         {Addr: register.AddrMaxLineCurrent, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
+	"derate_power":             {Addr: register.AddrDeratePower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
 
 	// Toggles
-	"parallel_mode":          {register.AddrParallelMode, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"power_saving_mode":      {register.AddrPowerSavingMode, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"overload_auto_restart":  {register.AddrOverloadAutoRestart, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"over_temp_auto_restart": {register.AddrOverTempAutoRestart, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"overload_bypass_enable": {register.AddrOverloadBypassEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"alarm_enable":           {register.AddrAlarmEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"bms_communication_en":   {register.AddrBMSCommunicationEn, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"bms_error_stop_enable":  {register.AddrBMSErrorStopEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"record_fault_enable":    {register.AddrRecordFaultEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"timed_charge_enable":    {register.AddrTimedChargeEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"timed_discharge_enable": {register.AddrTimedDischargeEnable, func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"parallel_mode":          {Addr: register.AddrParallelMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"power_saving_mode":      {Addr: register.AddrPowerSavingMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"overload_auto_restart":  {Addr: register.AddrOverloadAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"over_temp_auto_restart": {Addr: register.AddrOverTempAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"overload_bypass_enable": {Addr: register.AddrOverloadBypassEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"alarm_enable":           {Addr: register.AddrAlarmEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"bms_communication_en":   {Addr: register.AddrBMSCommunicationEn, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"bms_error_stop_enable":  {Addr: register.AddrBMSErrorStopEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"record_fault_enable":    {Addr: register.AddrRecordFaultEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"timed_charge_enable":    {Addr: register.AddrTimedChargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"timed_discharge_enable": {Addr: register.AddrTimedDischargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
 
 	// Battery system
-	"nominal_capacity":        {register.AddrNominalBatteryCapAH, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"pv_charge_current_limit": {register.AddrPVChargeCurrentLimit, func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
+	"nominal_capacity":        {Addr: register.AddrNominalBatteryCapAH, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"pv_charge_current_limit": {Addr: register.AddrPVChargeCurrentLimit, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
 
 	// SOC thresholds
-	"stop_charge_soc":       {register.AddrStopChargeSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"low_soc_alarm":         {register.AddrLowSOCAlarm, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"soc_switch_to_mains":   {register.AddrSOCSwitchToMains, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"soc_switch_to_battery": {register.AddrSOCSwitchToBattery, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"stop_charge_soc":       {Addr: register.AddrStopChargeSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"low_soc_alarm":         {Addr: register.AddrLowSOCAlarm, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"soc_switch_to_mains":   {Addr: register.AddrSOCSwitchToMains, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"soc_switch_to_battery": {Addr: register.AddrSOCSwitchToBattery, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+
+	// Packed SOC cutoffs (0xE00F: high byte = charge, low byte = discharge)
+	"cutoff_charge_soc":    {Addr: register.AddrCutoffSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }, PackedMask: 0xFF00, PackedShift: 8},
+	"cutoff_discharge_soc": {Addr: register.AddrCutoffSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }, PackedMask: 0x00FF, PackedShift: 0},
 
 	// Temperature limits
-	"charge_max_temp":    {register.AddrChargeMaxTemp, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charge_min_temp":    {register.AddrChargeMinTemp, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_max_temp": {register.AddrDischargeMaxTemp, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_min_temp": {register.AddrDischargeMinTemp, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_max_temp":    {Addr: register.AddrChargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_min_temp":    {Addr: register.AddrChargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"discharge_max_temp": {Addr: register.AddrDischargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"discharge_min_temp": {Addr: register.AddrDischargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
 
 	// Timed charge periods
-	"charge_start_time_1": {register.AddrChargeStartTime1, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_end_time_1":   {register.AddrChargeEndTime1, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_start_time_2": {register.AddrChargeStartTime2, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_end_time_2":   {register.AddrChargeEndTime2, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_start_time_3": {register.AddrChargeStartTime3, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_end_time_3":   {register.AddrChargeEndTime3, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"charge_1_stop_soc":   {register.AddrCharge1StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charge_2_stop_soc":   {register.AddrCharge2StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charge_3_stop_soc":   {register.AddrCharge3StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charge_1_max_power":  {register.AddrCharge1MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
-	"charge_2_max_power":  {register.AddrCharge2MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
-	"charge_3_max_power":  {register.AddrCharge3MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"charge_start_time_1": {Addr: register.AddrChargeStartTime1, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_end_time_1":   {Addr: register.AddrChargeEndTime1, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_start_time_2": {Addr: register.AddrChargeStartTime2, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_end_time_2":   {Addr: register.AddrChargeEndTime2, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_start_time_3": {Addr: register.AddrChargeStartTime3, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_end_time_3":   {Addr: register.AddrChargeEndTime3, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"charge_1_stop_soc":   {Addr: register.AddrCharge1StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_2_stop_soc":   {Addr: register.AddrCharge2StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_3_stop_soc":   {Addr: register.AddrCharge3StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_1_max_power":  {Addr: register.AddrCharge1MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"charge_2_max_power":  {Addr: register.AddrCharge2MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"charge_3_max_power":  {Addr: register.AddrCharge3MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
 
 	// Timed discharge periods
-	"discharge_start_time_1": {register.AddrDischargeStartTime1, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_end_time_1":   {register.AddrDischargeEndTime1, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_start_time_2": {register.AddrDischargeStartTime2, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_end_time_2":   {register.AddrDischargeEndTime2, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_start_time_3": {register.AddrDischargeStartTime3, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_end_time_3":   {register.AddrDischargeEndTime3, func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
-	"discharge_1_stop_soc":   {register.AddrDischarge1StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_2_stop_soc":   {register.AddrDischarge2StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_3_stop_soc":   {register.AddrDischarge3StopSOC, func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_1_max_power":  {register.AddrDischarge1MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
-	"discharge_2_max_power":  {register.AddrDischarge2MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
-	"discharge_3_max_power":  {register.AddrDischarge3MaxPower, func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"discharge_start_time_1": {Addr: register.AddrDischargeStartTime1, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_end_time_1":   {Addr: register.AddrDischargeEndTime1, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_start_time_2": {Addr: register.AddrDischargeStartTime2, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_end_time_2":   {Addr: register.AddrDischargeEndTime2, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_start_time_3": {Addr: register.AddrDischargeStartTime3, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_end_time_3":   {Addr: register.AddrDischargeEndTime3, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},
+	"discharge_1_stop_soc":   {Addr: register.AddrDischarge1StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"discharge_2_stop_soc":   {Addr: register.AddrDischarge2StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"discharge_3_stop_soc":   {Addr: register.AddrDischarge3StopSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"discharge_1_max_power":  {Addr: register.AddrDischarge1MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"discharge_2_max_power":  {Addr: register.AddrDischarge2MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
+	"discharge_3_max_power":  {Addr: register.AddrDischarge3MaxPower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeMul10(v) }},
 
 	// 12V-base voltages (need system voltage for encoding)
-	"over_voltage_protection": {register.AddrOverVoltageProtection, encode12VBase},
-	"limited_charge_voltage":  {register.AddrLimitedChargeVoltage, encode12VBase},
-	"equalizing_charge_volt":  {register.AddrEqualizingChargeVolt, encode12VBase},
-	"boost_charge_voltage":    {register.AddrBoostChargeVoltage, encode12VBase},
-	"float_charge_voltage":    {register.AddrFloatChargeVoltage, encode12VBase},
-	"boost_return_voltage":    {register.AddrBoostReturnVoltage, encode12VBase},
-	"over_discharge_voltage":  {register.AddrOverDischargeVoltage, encode12VBase},
-	"over_discharge_return_v": {register.AddrOverDischargeReturnV, encode12VBase},
-	"limited_discharge_volt":  {register.AddrLimitedDischargeVolt, encode12VBase},
-	"under_voltage_warning":   {register.AddrUnderVoltageWarning, encode12VBase},
-	"mains_switching_voltage": {register.AddrMainsSwitchingVoltage, encode12VBase},
-	"inverter_switching_volt": {register.AddrInverterSwitchingVolt, encode12VBase},
+	"over_voltage_protection": {Addr: register.AddrOverVoltageProtection, EncodeFunc: encode12VBase},
+	"limited_charge_voltage":  {Addr: register.AddrLimitedChargeVoltage, EncodeFunc: encode12VBase},
+	"equalizing_charge_volt":  {Addr: register.AddrEqualizingChargeVolt, EncodeFunc: encode12VBase},
+	"boost_charge_voltage":    {Addr: register.AddrBoostChargeVoltage, EncodeFunc: encode12VBase},
+	"float_charge_voltage":    {Addr: register.AddrFloatChargeVoltage, EncodeFunc: encode12VBase},
+	"boost_return_voltage":    {Addr: register.AddrBoostReturnVoltage, EncodeFunc: encode12VBase},
+	"over_discharge_voltage":  {Addr: register.AddrOverDischargeVoltage, EncodeFunc: encode12VBase},
+	"over_discharge_return_v": {Addr: register.AddrOverDischargeReturnV, EncodeFunc: encode12VBase},
+	"limited_discharge_volt":  {Addr: register.AddrLimitedDischargeVolt, EncodeFunc: encode12VBase},
+	"under_voltage_warning":   {Addr: register.AddrUnderVoltageWarning, EncodeFunc: encode12VBase},
+	"mains_switching_voltage": {Addr: register.AddrMainsSwitchingVoltage, EncodeFunc: encode12VBase},
+	"inverter_switching_volt": {Addr: register.AddrInverterSwitchingVolt, EncodeFunc: encode12VBase},
 }
 
 // WriteSetting writes a named setting with a human-readable value to all units.
@@ -184,6 +192,18 @@ func (s *System) WriteSetting(ctx context.Context, field string, value string) e
 	raw, err := sf.EncodeFunc(value, sysVoltage)
 	if err != nil {
 		return fmt.Errorf("encode %q=%q: %w", field, value, err)
+	}
+
+	// Packed register: read-modify-write to preserve other bits
+	if sf.PackedMask != 0 {
+		s.mu.RLock()
+		session := s.units[0].session
+		s.mu.RUnlock()
+		current, lookupErr := session.Lookup(sf.Addr)
+		if lookupErr != nil {
+			return fmt.Errorf("read packed register 0x%04X: %w", sf.Addr, lookupErr)
+		}
+		raw = (current &^ sf.PackedMask) | ((raw << sf.PackedShift) & sf.PackedMask)
 	}
 
 	return s.WriteRegister(ctx, sf.Addr, raw)

@@ -32,51 +32,50 @@ EOF
     fi
 done
 
-# --- MQTT section ---
-if bashio::config.true 'mqtt_enabled'; then
-    MQTT_BROKER=""
-    MQTT_USER=""
-    MQTT_PASS=""
-    MQTT_PREFIX=$(bashio::config 'mqtt_topic_prefix')
+# --- MQTT section (required for HA auto-discovery) ---
+MQTT_BROKER=""
+MQTT_USER=""
+MQTT_PASS=""
+MQTT_PREFIX=$(bashio::config 'mqtt_topic_prefix')
 
-    # Try HA Supervisor MQTT service first
-    if bashio::services.available "mqtt"; then
-        MQTT_HOST=$(bashio::services mqtt "host")
-        MQTT_PORT=$(bashio::services mqtt "port")
-        MQTT_BROKER="tcp://${MQTT_HOST}:${MQTT_PORT}"
-        MQTT_USER=$(bashio::services mqtt "username")
-        MQTT_PASS=$(bashio::services mqtt "password")
-        bashio::log.info "Auto-discovered MQTT broker: ${MQTT_BROKER}"
-    fi
+# Try HA Supervisor MQTT service first
+if bashio::services.available "mqtt"; then
+    MQTT_HOST=$(bashio::services mqtt "host")
+    MQTT_PORT=$(bashio::services mqtt "port")
+    MQTT_BROKER="tcp://${MQTT_HOST}:${MQTT_PORT}"
+    MQTT_USER=$(bashio::services mqtt "username")
+    MQTT_PASS=$(bashio::services mqtt "password")
+    bashio::log.info "Auto-discovered MQTT broker: ${MQTT_BROKER}"
+fi
 
-    # Manual overrides take precedence
-    if bashio::config.has_value 'mqtt_broker'; then
-        MQTT_BROKER=$(bashio::config 'mqtt_broker')
-        bashio::log.info "Using manual MQTT broker: ${MQTT_BROKER}"
-    fi
-    if bashio::config.has_value 'mqtt_username'; then
-        MQTT_USER=$(bashio::config 'mqtt_username')
-    fi
-    if bashio::config.has_value 'mqtt_password'; then
-        MQTT_PASS=$(bashio::config 'mqtt_password')
-    fi
+# Manual overrides take precedence
+if bashio::config.has_value 'mqtt_broker'; then
+    MQTT_BROKER=$(bashio::config 'mqtt_broker')
+    bashio::log.info "Using manual MQTT broker: ${MQTT_BROKER}"
+fi
+if bashio::config.has_value 'mqtt_username'; then
+    MQTT_USER=$(bashio::config 'mqtt_username')
+fi
+if bashio::config.has_value 'mqtt_password'; then
+    MQTT_PASS=$(bashio::config 'mqtt_password')
+fi
 
-    if [ -n "${MQTT_BROKER}" ]; then
-        cat >> "${CONFIG}" <<EOF
+if [ -n "${MQTT_BROKER}" ]; then
+    cat >> "${CONFIG}" <<EOF
 
 [mqtt]
 broker = "${MQTT_BROKER}"
 topic_prefix = "${MQTT_PREFIX}"
 EOF
-        if [ -n "${MQTT_USER}" ]; then
-            echo "username = \"${MQTT_USER}\"" >> "${CONFIG}"
-        fi
-        if [ -n "${MQTT_PASS}" ]; then
-            echo "password = \"${MQTT_PASS}\"" >> "${CONFIG}"
-        fi
-    else
-        bashio::log.warning "MQTT enabled but no broker available (no Mosquitto add-on and no manual broker configured)"
+    if [ -n "${MQTT_USER}" ]; then
+        echo "username = \"${MQTT_USER}\"" >> "${CONFIG}"
     fi
+    if [ -n "${MQTT_PASS}" ]; then
+        echo "password = \"${MQTT_PASS}\"" >> "${CONFIG}"
+    fi
+else
+    bashio::log.error "No MQTT broker available. Install the Mosquitto broker add-on or configure a broker URL."
+    exit 1
 fi
 
 bashio::log.info "Generated config:"

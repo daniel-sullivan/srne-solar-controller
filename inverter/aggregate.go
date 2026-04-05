@@ -186,6 +186,8 @@ func aggregateStats(units []UnitSnapshot) StatsData {
 		s.BatteryChargeToday += u.Stats.BatteryChargeToday
 		s.BatteryDischargeToday += u.Stats.BatteryDischargeToday
 		s.GridChargeToday += u.Stats.GridChargeToday
+		s.BatteryChargeEnergy += u.Stats.BatteryChargeEnergy
+		s.BatteryDischargeEnergy += u.Stats.BatteryDischargeEnergy
 		s.EnergyImportToday += u.Stats.EnergyImportToday
 		s.EnergyExportToday += u.Stats.EnergyExportToday
 		s.AccumPVGeneration += u.Stats.AccumPVGeneration

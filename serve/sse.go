@@ -179,10 +179,11 @@ func diffValues(prev, cur map[string]string) map[string]bool {
 }
 
 // writeSSEEvent writes a single SSE event. Multi-line data is split per spec.
+// Write errors mean the client disconnected; nothing to handle.
 func writeSSEEvent(w http.ResponseWriter, event, data string) {
-	fmt.Fprintf(w, "event: %s\n", event)
+	_, _ = fmt.Fprintf(w, "event: %s\n", event)
 	for _, line := range strings.Split(data, "\n") {
-		fmt.Fprintf(w, "data: %s\n", line)
+		_, _ = fmt.Fprintf(w, "data: %s\n", line)
 	}
-	fmt.Fprint(w, "\n")
+	_, _ = fmt.Fprint(w, "\n")
 }

@@ -111,23 +111,25 @@ type InverterData struct {
 
 // StatsData holds energy statistics.
 type StatsData struct {
-	PVGenerationToday     float64    `json:"pv_generation_today"`     // kWh
-	LoadConsumptionToday  float64    `json:"load_consumption_today"`  // kWh
-	BatteryChargeToday    float64    `json:"battery_charge_today"`    // AH
-	BatteryDischargeToday float64    `json:"battery_discharge_today"` // AH
-	GridChargeToday       float64    `json:"grid_charge_today"`       // AH
-	EnergyImportToday     float64    `json:"energy_import_today"`     // kWh
-	EnergyExportToday     float64    `json:"energy_export_today"`     // kWh
-	AccumPVGeneration     float64    `json:"accum_pv_generation"`     // kWh
-	AccumLoadConsumption  float64    `json:"accum_load_consumption"`  // kWh
-	AccumBatteryCharge    float64    `json:"accum_battery_charge"`    // AH
-	AccumBatteryDischarge float64    `json:"accum_battery_discharge"` // AH
-	AccumMainsCharge      float64    `json:"accum_mains_charge"`      // kWh
-	TotalRunningDays      float64    `json:"total_running_days"`
-	PVGenHistory          [7]float64 `json:"pv_gen_history"`         // AH, [0]=day-7 .. [6]=day-1
-	BattChargeHistory     [7]float64 `json:"batt_charge_history"`    // AH
-	BattDischargeHistory  [7]float64 `json:"batt_discharge_history"` // AH
-	MainsChargeHistory    [7]float64 `json:"mains_charge_history"`   // AH
-	LoadHistory           [7]float64 `json:"load_history"`           // kWh
-	MainsLoadHistory      [7]float64 `json:"mains_load_history"`     // kWh
+	PVGenerationToday      float64    `json:"pv_generation_today"`      // kWh
+	LoadConsumptionToday   float64    `json:"load_consumption_today"`   // kWh
+	BatteryChargeToday     float64    `json:"battery_charge_today"`     // AH
+	BatteryDischargeToday  float64    `json:"battery_discharge_today"`  // AH
+	GridChargeToday        float64    `json:"grid_charge_today"`        // AH
+	BatteryChargeEnergy    float64    `json:"battery_charge_energy"`    // kWh (computed: Ah * battery voltage)
+	BatteryDischargeEnergy float64    `json:"battery_discharge_energy"` // kWh (computed: Ah * battery voltage)
+	EnergyImportToday      float64    `json:"energy_import_today"`      // kWh
+	EnergyExportToday      float64    `json:"energy_export_today"`      // kWh
+	AccumPVGeneration      float64    `json:"accum_pv_generation"`      // kWh
+	AccumLoadConsumption   float64    `json:"accum_load_consumption"`   // kWh
+	AccumBatteryCharge     float64    `json:"accum_battery_charge"`     // AH
+	AccumBatteryDischarge  float64    `json:"accum_battery_discharge"`  // AH
+	AccumMainsCharge       float64    `json:"accum_mains_charge"`       // kWh
+	TotalRunningDays       float64    `json:"total_running_days"`
+	PVGenHistory           [7]float64 `json:"pv_gen_history"`         // AH, [0]=day-7 .. [6]=day-1
+	BattChargeHistory      [7]float64 `json:"batt_charge_history"`    // AH
+	BattDischargeHistory   [7]float64 `json:"batt_discharge_history"` // AH
+	MainsChargeHistory     [7]float64 `json:"mains_charge_history"`   // AH
+	LoadHistory            [7]float64 `json:"load_history"`           // kWh
+	MainsLoadHistory       [7]float64 `json:"mains_load_history"`     // kWh
 }

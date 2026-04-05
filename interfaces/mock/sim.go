@@ -477,6 +477,20 @@ func defaultRegisters() map[uint16]uint16 {
 	regs[register.AddrLoadApparentPowerL2] = 510
 	regs[register.AddrLoadRatioL2] = 5
 
+	// Battery settings — fill 0xE001-0xE039 for bulk reader
+	for addr := uint16(0xE001); addr <= 0xE039; addr++ {
+		if _, ok := regs[addr]; !ok {
+			regs[addr] = 0
+		}
+	}
+
+	// Timed charge/discharge — fill 0xE026-0xE04C for bulk reader
+	for addr := uint16(0xE026); addr <= 0xE04C; addr++ {
+		if _, ok := regs[addr]; !ok {
+			regs[addr] = 0
+		}
+	}
+
 	// Inverter settings — fill full range 0xE200-0xE221
 	for addr := uint16(0xE200); addr <= 0xE221; addr++ {
 		regs[addr] = 0
