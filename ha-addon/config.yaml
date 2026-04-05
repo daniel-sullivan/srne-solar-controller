@@ -34,7 +34,7 @@ options:
 schema:
   inverters:
     - host: str
-      port: "port(1,65535)"
+      port: port
       slave_id: "int(1,247)"
       serial: "int(0,)?"
   poll_interval: "int(1,3600)"
