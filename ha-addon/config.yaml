@@ -21,7 +21,7 @@ ports:
 ports_description:
   8080/tcp: Web dashboard (optional, ingress preferred)
 services:
-  - mqtt:need
+  - mqtt:want
 map:
   - config:rw
 options:
