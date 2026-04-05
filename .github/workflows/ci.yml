@@ -35,16 +35,12 @@ jobs:
           path: test-report.json
           reporter: golang-json
 
-      - name: Coverage report
-        if: always() && github.event_name == 'pull_request'
-        uses: vladopajic/go-test-coverage@v2
+      - name: Upload coverage
+        if: always()
+        uses: codecov/codecov-action@v5
         with:
-          profile: coverage.out
-          threshold-file: 0
-          threshold-package: 0
-          threshold-total: 0
-          git-token: ${{ github.token }}
-          git-branch: badges
+          files: coverage.out
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Vet
         run: go vet ./...

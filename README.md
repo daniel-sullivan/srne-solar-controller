@@ -1,5 +1,9 @@
 # SRNE Solar Controller
 
+[![CI](https://github.com/daniel-sullivan/srne-solar-controller/actions/workflows/ci.yml/badge.svg)](https://github.com/daniel-sullivan/srne-solar-controller/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/daniel-sullivan/srne-solar-controller/graph/badge.svg)](https://codecov.io/gh/daniel-sullivan/srne-solar-controller)
+[![Go Report Card](https://goreportcard.com/badge/github.com/daniel-sullivan/srne-solar-controller)](https://goreportcard.com/report/github.com/daniel-sullivan/srne-solar-controller)
+
 Monitor and control SRNE ASP/ASF-series hybrid inverters via MODBUS over Solarman V5 wifi dongles.
 
 Integrates with Home Assistant through MQTT auto-discovery, providing ~65 sensor entities and 7 writable controls. Also includes a live web dashboard and CLI for direct register access. Supports multi-inverter parallel systems with aggregated data and synchronized settings writes.
