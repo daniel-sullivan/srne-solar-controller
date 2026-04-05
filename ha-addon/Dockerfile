@@ -12,8 +12,6 @@ RUN CGO_ENABLED=0 go build -ldflags="-s -w" -o /usr/bin/srne .
 FROM ${BUILD_FROM}
 
 COPY --from=builder /usr/bin/srne /usr/bin/srne
-COPY ha-addon/run.sh /
+COPY ha-addon/run.sh /etc/services.d/srne/run
 
-RUN chmod a+x /run.sh
-
-CMD ["/run.sh"]
+RUN chmod a+x /etc/services.d/srne/run
