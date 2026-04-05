@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.1
+
+- Auto-reconnect dropped dongle TCP connections instead of staying permanently disconnected
+- Skip settings refresh when all units are stale to reduce log noise during outages
+
 ## 1.0.2
 
 - Fix s6-overlay startup (add `init: false`)
