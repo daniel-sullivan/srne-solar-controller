@@ -296,7 +296,7 @@ async function applyChanges() {
     writingDialog.showModal();
 
     try {
-        const resp = await fetch('/api/settings/write', {
+        const resp = await fetch('api/settings/write', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ changes })
