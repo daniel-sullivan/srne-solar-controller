@@ -1,0 +1,43 @@
+{{define "units"}}
+<article class="surface-variant round large-padding">
+    <nav class="no-margin">
+        <i class="extra primary-text">dns</i>
+        <div class="max">
+            <h5 class="no-margin">Units</h5>
+            {{if .Snapshot}}
+            <p class="small-text">{{len .Units}} inverter(s){{if .Parallel}} &mdash; parallel{{end}}</p>
+            {{end}}
+        </div>
+    </nav>
+    {{if .Snapshot}}
+    <div class="space"></div>
+    {{range .Units}}
+    <div class="surface round medium-padding small-margin">
+        <div class="grid no-space">
+            <div class="s12 m6">
+                <p class="bold no-margin">{{.Host}}</p>
+                <p class="small-text no-margin secondary-text">{{.Serial}} &middot; Slave {{.SlaveID}}</p>
+            </div>
+            <div class="s6 m3 right-align">
+                <p class="small-text no-margin">PV Output</p>
+                <h6 class="no-margin {{vc $.Changed (printf "unit-pv-%s" .Host)}}">{{printf "%.0f" .PV.TotalPower}} <span class="small-text">W</span></h6>
+            </div>
+            <div class="s6 m3 right-align">
+                <p class="small-text no-margin">Load</p>
+                <h6 class="no-margin {{vc $.Changed (printf "unit-load-%s" .Host)}}">{{printf "%.0f" .Load.TotalPower}} <span class="small-text">W</span></h6>
+            </div>
+        </div>
+        {{if .Stale}}
+        <div class="space small"></div>
+        <div class="chip error">
+            <i>warning</i>
+            <span>Stale Data</span>
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+    {{else}}
+    <p class="small-text">Waiting for data...</p>
+    {{end}}
+</article>
+{{end}}

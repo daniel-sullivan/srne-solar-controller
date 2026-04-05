@@ -1,0 +1,389 @@
+{{define "settings-content"}}
+<h5 class="small">
+    <i>settings</i>
+    <span>Inverter Settings</span>
+</h5>
+{{if .Settings}}
+
+{{with .Settings.Inverter}}
+<article class="surface-variant round large-padding small-margin">
+    <h6>Output &amp; Priority</h6>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Output Voltage" "Field" "output_voltage" "Value" .OutputVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Output Frequency" "Field" "output_frequency" "Value" .OutputFrequency "Step" "0.01" "Unit" "Hz"}}
+        {{template "sf-select" dict "Label" "Output Priority" "Field" "output_priority" "Current" .OutputPriority "Options" (outputPriorityOptions)}}
+        {{template "sf-select" dict "Label" "Charger Priority" "Field" "charger_priority" "Current" .ChargerPriority "Options" (chargerPriorityOptions)}}
+    </div>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Max Charge Current" "Field" "max_charge_current" "Value" .MaxChargeCurrent "Step" "0.1" "Unit" "A"}}
+        {{template "sf-num" dict "Label" "Mains Charge Limit" "Field" "mains_charge_current_lim" "Value" .MainsChargeCurrentLim "Step" "0.1" "Unit" "A"}}
+        {{template "sf-num" dict "Label" "Max Line Current" "Field" "max_line_current" "Value" .MaxLineCurrent "Step" "0.1" "Unit" "A"}}
+        {{template "sf-num" dict "Label" "Derate Power" "Field" "derate_power" "Value" .DeratePower "Step" "100" "Unit" "W"}}
+    </div>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-toggle" dict "Label" "Parallel Mode" "Field" "parallel_mode" "Current" .ParallelMode}}
+        {{template "sf-toggle" dict "Label" "Power Saving" "Field" "power_saving_mode" "Current" .PowerSavingMode}}
+        {{template "sf-toggle" dict "Label" "Overload Restart" "Field" "overload_auto_restart" "Current" .OverloadAutoRestart}}
+        {{template "sf-toggle" dict "Label" "Over-Temp Restart" "Field" "over_temp_auto_restart" "Current" .OverTempAutoRestart}}
+        {{template "sf-toggle" dict "Label" "Overload Bypass" "Field" "overload_bypass_enable" "Current" .OverloadBypassEnable}}
+        {{template "sf-toggle" dict "Label" "Alarm Enable" "Field" "alarm_enable" "Current" .AlarmEnable}}
+    </div>
+</article>
+{{end}}
+
+{{with .Settings.Battery}}
+<article class="surface-variant round large-padding small-margin">
+    <h6>Battery System</h6>
+    <div class="space"></div>
+    <div class="grid">
+        <div class="s6 m3">
+            <p class="small-text no-margin secondary-text">System Voltage</p>
+            <h6 class="no-margin">{{printf "%.0f" .SystemVoltage}} <span class="small-text">V</span></h6>
+        </div>
+        <div class="s6 m3">
+            <p class="small-text no-margin secondary-text">Battery Type</p>
+            <h6 class="no-margin">{{.BatteryTypeName}}</h6>
+        </div>
+        {{template "sf-num" dict "Label" "Nominal Capacity" "Field" "nominal_capacity" "Value" .NominalCapacity "Step" "1" "Unit" "AH"}}
+        {{template "sf-num" dict "Label" "PV Charge Limit" "Field" "pv_charge_current_limit" "Value" .PVChargeCurrentLimit "Step" "0.1" "Unit" "A"}}
+    </div>
+</article>
+
+<article class="surface-variant round large-padding small-margin">
+    <h6>Charge Voltages</h6>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Over-Voltage Prot." "Field" "over_voltage_protection" "Value" .OverVoltageProtection "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Limited Charge" "Field" "limited_charge_voltage" "Value" .LimitedChargeVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Equalizing" "Field" "equalizing_charge_volt" "Value" .EqualizingChargeVolt "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Boost" "Field" "boost_charge_voltage" "Value" .BoostChargeVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Float" "Field" "float_charge_voltage" "Value" .FloatChargeVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Boost Return" "Field" "boost_return_voltage" "Value" .BoostReturnVoltage "Step" "0.1" "Unit" "V"}}
+    </div>
+</article>
+
+<article class="surface-variant round large-padding small-margin">
+    <h6>Discharge Voltages</h6>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Over-Discharge" "Field" "over_discharge_voltage" "Value" .OverDischargeVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Over-Discharge Return" "Field" "over_discharge_return_v" "Value" .OverDischargeReturnV "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Limited Discharge" "Field" "limited_discharge_volt" "Value" .LimitedDischargeVolt "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Under-Voltage Warn" "Field" "under_voltage_warning" "Value" .UnderVoltageWarning "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Mains Switching" "Field" "mains_switching_voltage" "Value" .MainsSwitchingVoltage "Step" "0.1" "Unit" "V"}}
+        {{template "sf-num" dict "Label" "Inverter Switching" "Field" "inverter_switching_volt" "Value" .InverterSwitchingVolt "Step" "0.1" "Unit" "V"}}
+    </div>
+</article>
+
+<article class="surface-variant round large-padding small-margin">
+    <h6>SOC Thresholds</h6>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Stop Charge SOC" "Field" "stop_charge_soc" "Value" .StopChargeSOC "Step" "1" "Unit" "%"}}
+        {{template "sf-num" dict "Label" "Low SOC Alarm" "Field" "low_soc_alarm" "Value" .LowSOCAlarm "Step" "1" "Unit" "%"}}
+        {{template "sf-num" dict "Label" "Switch To Mains" "Field" "soc_switch_to_mains" "Value" .SOCSwitchToMains "Step" "1" "Unit" "%"}}
+        {{template "sf-num" dict "Label" "Switch To Battery" "Field" "soc_switch_to_battery" "Value" .SOCSwitchToBattery "Step" "1" "Unit" "%"}}
+    </div>
+</article>
+
+<article class="surface-variant round large-padding small-margin">
+    <h6>Temperature Limits</h6>
+    <div class="space"></div>
+    <div class="grid">
+        {{template "sf-num" dict "Label" "Charge Max" "Field" "charge_max_temp" "Value" .ChargeMaxTemp "Step" "1" "Unit" "°C"}}
+        {{template "sf-num" dict "Label" "Charge Min" "Field" "charge_min_temp" "Value" .ChargeMinTemp "Step" "1" "Unit" "°C"}}
+        {{template "sf-num" dict "Label" "Discharge Max" "Field" "discharge_max_temp" "Value" .DischargeMaxTemp "Step" "1" "Unit" "°C"}}
+        {{template "sf-num" dict "Label" "Discharge Min" "Field" "discharge_min_temp" "Value" .DischargeMinTemp "Step" "1" "Unit" "°C"}}
+    </div>
+</article>
+{{end}}
+
+{{with .Settings.Timed}}
+<article class="surface-variant round large-padding small-margin">
+    <nav class="no-margin">
+        <div class="max"><h6 class="no-margin">Timed Charging</h6></div>
+        {{template "sf-toggle" dict "Label" "Timed Charging" "Field" "timed_charge_enable" "Current" (boolToUint16 .ChargeEnabled)}}
+    </nav>
+    <div class="space"></div>
+    {{range $i, $p := .ChargePeriods}}
+    {{$n := add $i 1}}
+    <div class="surface round medium-padding small-margin">
+        <p class="bold small-text no-margin">Period {{$n}}</p>
+        <div class="space small"></div>
+        <div class="grid">
+            {{template "sf-time" dict "Label" "Start" "Field" (printf "charge_start_time_%d" $n) "Hour" $p.StartHour "Minute" $p.StartMinute}}
+            {{template "sf-time" dict "Label" "End" "Field" (printf "charge_end_time_%d" $n) "Hour" $p.EndHour "Minute" $p.EndMinute}}
+            {{template "sf-num" dict "Label" "Stop SOC" "Field" (printf "charge_%d_stop_soc" $n) "Value" $p.StopSOC "Step" "1" "Unit" "%"}}
+            {{template "sf-num" dict "Label" "Max Power" "Field" (printf "charge_%d_max_power" $n) "Value" $p.MaxPower "Step" "10" "Unit" "W"}}
+        </div>
+    </div>
+    {{end}}
+</article>
+
+<article class="surface-variant round large-padding small-margin">
+    <nav class="no-margin">
+        <div class="max"><h6 class="no-margin">Timed Discharging</h6></div>
+        {{template "sf-toggle" dict "Label" "Timed Discharging" "Field" "timed_discharge_enable" "Current" (boolToUint16 .DischargeEnabled)}}
+    </nav>
+    <div class="space"></div>
+    {{range $i, $p := .DischargePeriods}}
+    {{$n := add $i 1}}
+    <div class="surface round medium-padding small-margin">
+        <p class="bold small-text no-margin">Period {{$n}}</p>
+        <div class="space small"></div>
+        <div class="grid">
+            {{template "sf-time" dict "Label" "Start" "Field" (printf "discharge_start_time_%d" $n) "Hour" $p.StartHour "Minute" $p.StartMinute}}
+            {{template "sf-time" dict "Label" "End" "Field" (printf "discharge_end_time_%d" $n) "Hour" $p.EndHour "Minute" $p.EndMinute}}
+            {{template "sf-num" dict "Label" "Stop SOC" "Field" (printf "discharge_%d_stop_soc" $n) "Value" $p.StopSOC "Step" "1" "Unit" "%"}}
+            {{template "sf-num" dict "Label" "Max Power" "Field" (printf "discharge_%d_max_power" $n) "Value" $p.MaxPower "Step" "10" "Unit" "W"}}
+        </div>
+    </div>
+    {{end}}
+</article>
+{{end}}
+
+{{with .Settings.Inverter}}
+<article class="surface-variant round large-padding small-margin">
+    <h6>Communication &amp; BMS</h6>
+    <div class="space"></div>
+    <div class="grid">
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">RS485 Address</p>
+            <p class="no-margin">{{.RS485Address}}</p>
+        </div>
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">BMS Protocol</p>
+            <p class="no-margin">{{.BMSProtocol}}</p>
+        </div>
+        {{template "sf-toggle" dict "Label" "BMS Comms" "Field" "bms_communication_en" "Current" .BMSCommunicationEn}}
+        {{template "sf-toggle" dict "Label" "BMS Error Stop" "Field" "bms_error_stop_enable" "Current" .BMSErrorStopEnable}}
+        {{template "sf-toggle" dict "Label" "Fault Recording" "Field" "record_fault_enable" "Current" .RecordFaultEnable}}
+    </div>
+</article>
+{{end}}
+
+<!-- Floating apply bar -->
+<div id="apply-bar" style="display:none;position:fixed;bottom:1.5rem;left:50%;transform:translateX(-50%);z-index:10;min-width:320px">
+    <div class="primary round large-padding" style="display:flex;align-items:center;gap:1rem;box-shadow:0 4px 20px rgba(0,0,0,0.4)">
+        <span id="change-count" class="bold" style="white-space:nowrap"></span>
+        <div style="flex:1"></div>
+        <button class="inverse round small" onclick="discardChanges()">Discard</button>
+        <button class="inverse round small" onclick="showConfirmDialog()">
+            <i>check</i>Apply
+        </button>
+    </div>
+</div>
+
+<!-- Confirmation dialog -->
+<dialog id="confirm-dialog" class="round large-padding" style="max-width:500px;width:90%">
+    <h6>Confirm Changes</h6>
+    <div class="space"></div>
+    <div id="confirm-list"></div>
+    <div class="space"></div>
+    <nav class="right-align">
+        <button class="border round" onclick="document.getElementById('confirm-dialog').close()">
+            <span>Cancel</span>
+        </button>
+        <button class="round" onclick="applyChanges()">
+            <i>check</i><span>Apply</span>
+        </button>
+    </nav>
+</dialog>
+
+<!-- Writing spinner dialog -->
+<dialog id="writing-dialog" class="round large-padding" style="max-width:300px;width:80%;text-align:center">
+    <progress class="circle"></progress>
+    <div class="space"></div>
+    <h6>Writing settings...</h6>
+    <p class="small-text" id="writing-status">Applying changes to inverter(s)</p>
+</dialog>
+
+<!-- Result dialog -->
+<dialog id="result-dialog" class="round large-padding" style="max-width:400px;width:90%">
+    <div id="result-content"></div>
+    <div class="space"></div>
+    <nav class="right-align">
+        <button class="round" onclick="document.getElementById('result-dialog').close();location.reload()">
+            <span>OK</span>
+        </button>
+    </nav>
+</dialog>
+
+<script>
+const pendingChanges = {};
+const originalValues = {};
+let initialized = false;
+
+// Defer tracking until after page load to ignore Beer CSS init events
+document.addEventListener('DOMContentLoaded', function() {
+    setTimeout(function() { initialized = true; }, 200);
+});
+
+function trackChange(field, value, label, original) {
+    if (!initialized) return;
+    if (!(field in originalValues)) {
+        originalValues[field] = original;
+    }
+    if (value === originalValues[field]) {
+        delete pendingChanges[field];
+    } else {
+        pendingChanges[field] = { value, label: label || field, original: originalValues[field] };
+    }
+    updateApplyBar();
+}
+
+function updateApplyBar() {
+    const count = Object.keys(pendingChanges).length;
+    const bar = document.getElementById('apply-bar');
+    const countEl = document.getElementById('change-count');
+    if (count > 0) {
+        bar.style.display = '';
+        countEl.textContent = count + ' change' + (count > 1 ? 's' : '') + ' pending';
+    } else {
+        bar.style.display = 'none';
+    }
+    // Mark dirty fields
+    document.querySelectorAll('[data-field]').forEach(el => {
+        if (pendingChanges[el.dataset.field]) {
+            el.classList.add('field-dirty');
+        } else {
+            el.classList.remove('field-dirty');
+        }
+    });
+}
+
+function discardChanges() {
+    // Reload page to reset all fields
+    location.reload();
+}
+
+function formatValue(val) {
+    if (val === '1') return 'On';
+    if (val === '0') return 'Off';
+    return val;
+}
+
+function showConfirmDialog() {
+    const list = document.getElementById('confirm-list');
+    list.innerHTML = '';
+    for (const [field, info] of Object.entries(pendingChanges)) {
+        const row = document.createElement('div');
+        row.className = 'row surface round padding small-margin';
+        row.innerHTML = '<div class="max">' +
+            '<p class="bold small-text no-margin">' + info.label + '</p>' +
+            '<p class="small-text no-margin secondary-text">' + field + '</p>' +
+            '</div>' +
+            '<p class="no-margin">' + formatValue(info.original) + ' → <b>' + formatValue(info.value) + '</b></p>';
+        list.appendChild(row);
+    }
+    document.getElementById('confirm-dialog').showModal();
+}
+
+async function applyChanges() {
+    document.getElementById('confirm-dialog').close();
+
+    const changes = Object.entries(pendingChanges).map(([field, info]) => ({
+        field, value: String(info.value)
+    }));
+
+    // Show spinner
+    const writingDialog = document.getElementById('writing-dialog');
+    document.getElementById('writing-status').textContent =
+        'Applying ' + changes.length + ' change' + (changes.length > 1 ? 's' : '') + ' to inverter(s)';
+    writingDialog.showModal();
+
+    try {
+        const resp = await fetch('/api/settings/write', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ changes })
+        });
+        const data = await resp.json();
+        const content = document.getElementById('result-content');
+
+        if (data.ok) {
+            content.innerHTML = '<nav class="no-margin"><i class="large primary-text">check_circle</i>' +
+                '<div class="max"><h6 class="no-margin">Changes Applied</h6>' +
+                '<p class="small-text">' + data.applied.length + ' setting(s) updated</p></div></nav>';
+        } else {
+            let html = '<nav class="no-margin"><i class="large error-text">error</i>' +
+                '<div class="max"><h6 class="no-margin">Some Changes Failed</h6></div></nav><div class="space"></div>';
+            if (data.applied && data.applied.length > 0) {
+                html += '<p class="small-text">Applied: ' + data.applied.length + '</p>';
+            }
+            for (const e of (data.errors || [])) {
+                html += '<div class="chip error small-margin"><i>error</i><span>' + e.field + ': ' + e.message + '</span></div>';
+            }
+            content.innerHTML = html;
+        }
+        writingDialog.close();
+        document.getElementById('result-dialog').showModal();
+    } catch (err) {
+        writingDialog.close();
+        alert('Request failed: ' + err.message);
+    }
+}
+</script>
+
+{{else}}
+<article class="surface-variant round large-padding">
+    <p class="small-text">Loading settings...</p>
+</article>
+{{end}}
+{{end}}
+
+{{/* Editable number field */}}
+{{define "sf-num"}}
+<div class="s6 m4 l2" data-field="{{.Field}}">
+    <p class="small-text no-margin secondary-text">{{.Label}}</p>
+    <div class="field small suffix border no-margin">
+        <input type="number" value="{{printf "%.1f" .Value}}" step="{{.Step}}"
+            data-original="{{printf "%.1f" .Value}}"
+            onchange="trackChange('{{.Field}}', this.value, '{{.Label}}', this.dataset.original)">
+        <span class="unit">{{.Unit}}</span>
+    </div>
+</div>
+{{end}}
+
+{{/* Toggle field */}}
+{{define "sf-toggle"}}
+<div class="s6 m4 l2" data-field="{{.Field}}">
+    {{if .Label}}<p class="small-text no-margin secondary-text">{{.Label}}</p>{{end}}
+    <label class="switch">
+        <input type="checkbox" {{if ne .Current 0}}checked{{end}}
+            data-original="{{if ne .Current 0}}1{{else}}0{{end}}"
+            onchange="trackChange('{{.Field}}', this.checked ? '1' : '0', '{{.Label}}', this.dataset.original)">
+        <span></span>
+    </label>
+</div>
+{{end}}
+
+{{/* Select field */}}
+{{define "sf-select"}}
+<div class="s6 m3 l2" data-field="{{.Field}}">
+    <p class="small-text no-margin secondary-text">{{.Label}}</p>
+    <div class="field small border no-margin">
+        <select data-original="{{.Current}}"
+            onchange="trackChange('{{.Field}}', this.value, '{{.Label}}', this.dataset.original)">
+            {{range .Options}}
+            <option value="{{.Value}}" {{if eq .Value $.Current}}selected{{end}}>{{.Label}}</option>
+            {{end}}
+        </select>
+    </div>
+</div>
+{{end}}
+
+{{/* Time field (HH:MM) */}}
+{{define "sf-time"}}
+<div class="s3 m2" data-field="{{.Field}}">
+    <p class="small-text no-margin secondary-text">{{.Label}}</p>
+    <div class="field small border no-margin">
+        <input type="time" value="{{printf "%02d:%02d" .Hour .Minute}}"
+            data-original="{{printf "%02d:%02d" .Hour .Minute}}"
+            onchange="trackChange('{{.Field}}', this.value, '{{.Label}}', this.dataset.original)">
+    </div>
+</div>
+{{end}}

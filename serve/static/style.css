@@ -1,0 +1,92 @@
+/* Dashboard layout */
+
+main.responsive {
+    padding: 1.5rem;
+}
+
+article {
+    margin-bottom: 0.5rem;
+}
+
+.large-padding {
+    padding: 1.5rem;
+}
+
+.medium-padding {
+    padding: 1rem;
+}
+
+.small-margin {
+    margin: 0.5rem 0;
+}
+
+.space.small {
+    height: 0.5rem;
+}
+
+/* Value labels */
+.small-text {
+    opacity: 0.7;
+}
+
+.secondary-text {
+    opacity: 0.5;
+    text-transform: uppercase;
+    font-size: 0.7rem;
+    letter-spacing: 0.05em;
+}
+
+/* Units suffix inside headings */
+h6 > .small-text,
+h2 > .large-text {
+    font-weight: 300;
+    opacity: 0.6;
+}
+
+/* Row helper */
+.row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.15rem 0;
+}
+
+/* Chips */
+.chip.small {
+    font-size: 0.8rem;
+    height: 1.5rem;
+}
+
+/* Settings: align inputs to bottom of each grid row */
+article .grid {
+    align-items: end;
+}
+
+/* Settings: unit suffix inside input fields */
+.field.suffix > .unit {
+    position: absolute;
+    inset: 0 1rem 0 auto;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    color: var(--on-surface-variant);
+    font-size: 0.875rem;
+}
+
+/* Settings: dirty field indicator */
+.field-dirty {
+    border-left: 3px solid var(--primary) !important;
+    border-radius: 4px;
+    padding-left: 0.5rem;
+}
+
+/* Pulse on changed values — bright green flash for visibility on dark bg */
+.value-changed {
+    animation: value-pulse 2.5s ease-out;
+}
+
+@keyframes value-pulse {
+    0% { color: #66ff66; text-shadow: 0 0 8px #66ff66; }
+    20% { color: #aaffaa; text-shadow: 0 0 4px #66ff66; }
+    100% { color: inherit; text-shadow: none; }
+}

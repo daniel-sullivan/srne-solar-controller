@@ -77,24 +77,23 @@ const (
 	AddrHeatsinkCTemp       = 0x0222
 	AddrHeatsinkDTemp       = 0x0223
 	AddrPVChargeCurrentBatt = 0x0224
-	// L2 (split-phase)
+	// L2/L3 — interleaved by register type (L2, L3, L2, L3, ...)
 	AddrGridVoltageL2       = 0x022A
-	AddrGridCurrentL2       = 0x022B
+	AddrGridVoltageL3       = 0x022B
 	AddrInverterVoltageL2   = 0x022C
-	AddrInverterCurrentL2   = 0x022D
-	AddrLoadCurrentL2       = 0x022E
-	AddrLoadPowerL2         = 0x022F
-	AddrLoadApparentPowerL2 = 0x0230
-	AddrLoadRatioL2         = 0x0231
-	// L3 (3-phase)
-	AddrGridVoltageL3       = 0x0232
-	AddrGridCurrentL3       = 0x0233
-	AddrInverterVoltageL3   = 0x0234
-	AddrInverterCurrentL3   = 0x0235
-	AddrLoadCurrentL3       = 0x0236
-	AddrLoadPowerL3         = 0x0237
-	AddrLoadApparentPowerL3 = 0x0238
-	AddrLoadRatioL3         = 0x0239
+	AddrInverterVoltageL3   = 0x022D
+	AddrInverterCurrentL2   = 0x022E
+	AddrInverterCurrentL3   = 0x022F
+	AddrLoadCurrentL2       = 0x0230
+	AddrLoadCurrentL3       = 0x0231
+	AddrLoadPowerL2         = 0x0232
+	AddrLoadPowerL3         = 0x0233
+	AddrLoadApparentPowerL2 = 0x0234
+	AddrLoadApparentPowerL3 = 0x0235
+	AddrLoadRatioL2         = 0x0236
+	AddrLoadRatioL3         = 0x0237
+	AddrGridCurrentL2       = 0x0238
+	AddrGridCurrentL3       = 0x0239
 
 	// P05: Battery settings (read/write)
 	AddrPVChargeCurrentLimit  = 0xE001

@@ -35,10 +35,14 @@ func init() {
 	rootCmd.PersistentFlags().Uint8Var(&slaveID, "slave", 1, "MODBUS slave ID")
 	rootCmd.PersistentFlags().Uint32Var(&serial, "serial", 0, "Dongle serial number")
 	rootCmd.PersistentFlags().BoolVar(&debug, "debug", false, "Print raw frame hex dumps")
-	_ = rootCmd.MarkPersistentFlagRequired("host")
+	// host is validated at runtime in newClient() rather than globally,
+	// because the serve command gets its inverters from a config file.
 }
 
 func newClient() (modbus.Client, error) {
+	if host == "" {
+		return nil, fmt.Errorf("--host is required")
+	}
 	client := solarman.NewClient(host, port, serial, slaveID)
 	client.Debug = debug
 	if err := client.Connect(); err != nil {

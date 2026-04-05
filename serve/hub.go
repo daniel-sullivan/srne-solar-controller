@@ -1,0 +1,231 @@
+package serve
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"sync"
+	"time"
+
+	"github.com/daniel-sullivan/srne-solar-controller/inverter"
+)
+
+// Subscriber receives snapshots from the hub.
+type Subscriber struct {
+	C    chan *inverter.Snapshot
+	done chan struct{}
+}
+
+// writeRequest is sent to the hub's write channel to serialize register writes with polling.
+type writeRequest struct {
+	field  string
+	value  string
+	result chan error
+}
+
+// Hub polls the inverter system and fans out snapshots to subscribers.
+// All MODBUS communication is serialized through the hub's run loop.
+type Hub struct {
+	system          *inverter.System
+	pollInterval    time.Duration
+	settingsRefresh time.Duration
+
+	mu          sync.RWMutex
+	latest      *inverter.Snapshot
+	settings    *inverter.Settings
+	subscribers map[*Subscriber]struct{}
+
+	writeCh chan writeRequest
+}
+
+// NewHub creates a hub that polls the system at the given interval.
+// The system may be nil initially — call SetSystem before Run.
+func NewHub(system *inverter.System, pollInterval, settingsRefresh time.Duration) *Hub {
+	return &Hub{
+		system:          system,
+		pollInterval:    pollInterval,
+		settingsRefresh: settingsRefresh,
+		subscribers:     make(map[*Subscriber]struct{}),
+		writeCh:         make(chan writeRequest, 8),
+	}
+}
+
+// SetSystem sets the inverter system after deferred initialization.
+func (h *Hub) SetSystem(system *inverter.System) {
+	h.mu.Lock()
+	h.system = system
+	h.mu.Unlock()
+}
+
+// Subscribe returns a new subscriber that receives snapshots.
+func (h *Hub) Subscribe() *Subscriber {
+	sub := &Subscriber{
+		C:    make(chan *inverter.Snapshot, 2),
+		done: make(chan struct{}),
+	}
+	h.mu.Lock()
+	h.subscribers[sub] = struct{}{}
+	h.mu.Unlock()
+	return sub
+}
+
+// Unsubscribe removes a subscriber and closes its channel.
+func (h *Hub) Unsubscribe(sub *Subscriber) {
+	h.mu.Lock()
+	if _, ok := h.subscribers[sub]; ok {
+		delete(h.subscribers, sub)
+		close(sub.done)
+	}
+	h.mu.Unlock()
+}
+
+// Latest returns the most recent snapshot, or nil if none yet.
+func (h *Hub) Latest() *inverter.Snapshot {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.latest
+}
+
+// Settings returns the cached settings, or nil if not yet read.
+func (h *Hub) Settings() *inverter.Settings {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.settings
+}
+
+// WriteSetting sends a write request to the hub's run loop, ensuring it's
+// serialized with polling. Blocks until the write completes or ctx expires.
+func (h *Hub) WriteSetting(ctx context.Context, field, value string) error {
+	req := writeRequest{
+		field:  field,
+		value:  value,
+		result: make(chan error, 1),
+	}
+	select {
+	case h.writeCh <- req:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case err := <-req.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Run starts the polling loop. Blocks until ctx is cancelled.
+func (h *Hub) Run(ctx context.Context) {
+	pollTicker := time.NewTicker(h.pollInterval)
+	defer pollTicker.Stop()
+
+	settingsTicker := time.NewTicker(h.settingsRefresh)
+	defer settingsTicker.Stop()
+
+	// Read settings and take initial snapshot
+	h.refreshSettings(ctx)
+	h.poll(ctx)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-pollTicker.C:
+			h.poll(ctx)
+		case <-settingsTicker.C:
+			h.refreshSettings(ctx)
+		case req := <-h.writeCh:
+			h.handleWrite(ctx, req)
+		}
+	}
+}
+
+func (h *Hub) handleWrite(ctx context.Context, req writeRequest) {
+	h.mu.RLock()
+	sys := h.system
+	h.mu.RUnlock()
+
+	if sys == nil {
+		req.result <- fmt.Errorf("system not ready")
+		return
+	}
+
+	slog.Info("writing setting", "field", req.field, "value", req.value)
+	err := sys.WriteSetting(ctx, req.field, req.value)
+	if err != nil {
+		slog.Error("setting write failed", "field", req.field, "error", err)
+	} else {
+		slog.Info("setting written", "field", req.field, "value", req.value)
+		// Refresh settings after successful write
+		h.refreshSettings(ctx)
+	}
+	req.result <- err
+}
+
+func (h *Hub) refreshSettings(ctx context.Context) {
+	h.mu.RLock()
+	sys := h.system
+	h.mu.RUnlock()
+	if sys == nil {
+		return
+	}
+
+	if err := sys.RefreshSettings(ctx); err != nil {
+		slog.Warn("settings refresh failed", "error", err)
+	}
+	settings, err := sys.ReadSettings(ctx)
+	if err != nil {
+		slog.Warn("settings read failed", "error", err)
+		return
+	}
+	slog.Debug("settings refreshed")
+	h.mu.Lock()
+	h.settings = settings
+	h.mu.Unlock()
+}
+
+func (h *Hub) poll(ctx context.Context) {
+	h.mu.RLock()
+	sys := h.system
+	h.mu.RUnlock()
+	if sys == nil {
+		return
+	}
+
+	snap := sys.Snapshot(ctx)
+	staleCount := 0
+	for _, u := range snap.Units {
+		if u.Stale {
+			staleCount++
+		}
+	}
+	slog.Debug("poll complete",
+		"battery_soc", snap.Battery.SOC,
+		"pv_total", snap.PV.TotalPower,
+		"load_total", snap.Load.TotalPower,
+		"stale_units", staleCount,
+	)
+
+	h.mu.Lock()
+	h.latest = snap
+	subs := make([]*Subscriber, 0, len(h.subscribers))
+	for sub := range h.subscribers {
+		subs = append(subs, sub)
+	}
+	h.mu.Unlock()
+
+	for _, sub := range subs {
+		select {
+		case sub.C <- snap:
+		default:
+			select {
+			case <-sub.C:
+			default:
+			}
+			select {
+			case sub.C <- snap:
+			default:
+			}
+		}
+	}
+}

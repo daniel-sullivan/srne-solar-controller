@@ -15,6 +15,19 @@ description = "Run all tests with race detector"
 run = "go build ./..."
 description = "Build all packages"
 
+[tasks.serve]
+run = "go run . serve --config srne.toml"
+description = "Start the service against local inverters"
+
 [tasks.check]
 depends = ["build", "test", "lint"]
 description = "Run build, test, and lint"
+
+[tasks."addon:build"]
+run = "docker build --build-arg BUILD_FROM=ghcr.io/home-assistant/amd64-base:latest -t srne-addon -f ha-addon/Dockerfile ."
+description = "Build the HA add-on Docker image (amd64)"
+
+[tasks."addon:run"]
+run = "docker run --rm --network host srne-addon"
+depends = ["addon:build"]
+description = "Build and run the HA add-on locally"

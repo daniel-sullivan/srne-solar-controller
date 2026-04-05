@@ -1,0 +1,54 @@
+{{define "faults-content"}}
+<h5 class="small">
+    <i>warning</i>
+    <span>Fault History</span>
+</h5>
+
+{{if .Faults}}
+{{range .Faults}}
+<article class="surface-variant round large-padding small-margin">
+    <nav class="no-margin">
+        <i class="large error-text">error</i>
+        <div class="max">
+            <h6 class="no-margin">#{{add .Index 1}} &mdash; {{faultCodeName .FaultCode}}</h6>
+            <p class="small-text">{{.Timestamp}}</p>
+        </div>
+        <div class="chip error">Code {{.FaultCode}}</div>
+    </nav>
+    <div class="space"></div>
+    <div class="grid">
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">Battery</p>
+            <p class="no-margin">{{printf "%.1f" .BatteryVoltage}} V</p>
+        </div>
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">Inverter L1</p>
+            <p class="no-margin">{{printf "%.1f" .InverterVoltL1}} V</p>
+        </div>
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">Inverter L2</p>
+            <p class="no-margin">{{printf "%.1f" .InverterVoltL2}} V</p>
+        </div>
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">Bus Voltage</p>
+            <p class="no-margin">{{printf "%.1f" .BusVoltage}} V</p>
+        </div>
+        <div class="s6 m4 l2">
+            <p class="small-text no-margin secondary-text">Frequency</p>
+            <p class="no-margin">{{printf "%.2f" .Frequency}} Hz</p>
+        </div>
+    </div>
+</article>
+{{end}}
+{{else}}
+<article class="surface-variant round large-padding">
+    <nav class="no-margin">
+        <i class="large primary-text">check_circle</i>
+        <div class="max">
+            <h6 class="no-margin">No Faults Recorded</h6>
+            <p class="small-text">System is healthy</p>
+        </div>
+    </nav>
+</article>
+{{end}}
+{{end}}

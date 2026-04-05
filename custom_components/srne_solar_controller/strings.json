@@ -1,0 +1,40 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "SRNE Solar Controller",
+        "description": "Enter the URL of your SRNE Solar Controller. If running as a Home Assistant add-on, the default should work.",
+        "data": {
+          "base_url": "URL"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Unable to connect to the SRNE Solar Controller at the given URL."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": { "name": "Battery SOC" },
+      "battery_voltage": { "name": "Battery Voltage" },
+      "battery_current": { "name": "Battery Current" },
+      "battery_power": { "name": "Charge Power" },
+      "battery_temp": { "name": "Battery Temperature" },
+      "controller_temp": { "name": "Controller Temperature" },
+      "pv_total_power": { "name": "PV Total Power" },
+      "pv1_power": { "name": "PV1 Power" },
+      "pv2_power": { "name": "PV2 Power" },
+      "load_power": { "name": "Load Power" },
+      "grid_frequency": { "name": "Grid Frequency" },
+      "inverter_state": { "name": "Inverter State" },
+      "bus_voltage": { "name": "Bus Voltage" },
+      "inverter_frequency": { "name": "Inverter Frequency" },
+      "heatsink_temp_a": { "name": "Heatsink Temp DC-DC" },
+      "heatsink_temp_b": { "name": "Heatsink Temp DC-AC" },
+      "pv_generation_today": { "name": "PV Generation Today" },
+      "load_consumption_today": { "name": "Load Consumption Today" },
+      "battery_charge_today": { "name": "Battery Charge Today" },
+      "battery_discharge_today": { "name": "Battery Discharge Today" }
+    }
+  }
+}

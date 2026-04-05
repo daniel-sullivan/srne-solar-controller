@@ -45,7 +45,7 @@ var ProductInfo = Group{
 		{Address: AddrProtocolVersion, Name: "Protocol Version", Unit: "", Type: U16, Access: ReadOnly, Count: 1},
 		{Address: AddrManufactureDate, Name: "Manufacture Date", Unit: "", Type: U32, Access: ReadOnly, Count: 2, Optional: true},
 		{Address: AddrCompilationDateTime, Name: "Compilation Date/Time", Unit: "", Type: ASCII, Access: ReadOnly, Count: 20, Optional: true},
-		{Address: AddrSerialNumber, Name: "Serial Number", Unit: "", Type: ASCIILoByte, Access: ReadOnly, Count: 20},
+		{Address: AddrSerialNumber, Name: "Serial Number", Unit: "", Type: ASCIILoByte, Access: ReadOnly, Count: 20, Optional: true},
 	},
 }
 
@@ -116,23 +116,23 @@ var InverterData = Group{
 		{Address: AddrHeatsinkCTemp, Name: "Heatsink C Temp (Transformer)", Scale: Mul01, Unit: "°C", Type: S16, Access: ReadOnly, Count: 1},
 		{Address: AddrHeatsinkDTemp, Name: "Heatsink D Temp (Ambient)", Scale: Mul01, Unit: "°C", Type: S16, Access: ReadOnly, Count: 1},
 		{Address: AddrPVChargeCurrentBatt, Name: "PV Charge Current (Batt Side)", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1},
-		// L2/L3 — split-phase and 3-phase models
+		// L2/L3 — interleaved by register type (L2, L3, L2, L3, ...)
 		{Address: AddrGridVoltageL2, Name: "Grid Voltage L2", Scale: Mul01, Unit: "V", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrGridCurrentL2, Name: "Grid Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrInverterVoltageL2, Name: "Inverter Voltage L2", Scale: Mul01, Unit: "V", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrInverterCurrentL2, Name: "Inverter Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrLoadCurrentL2, Name: "Load Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrLoadPowerL2, Name: "Load Power L2", Scale: Mul1, Unit: "W", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrLoadApparentPowerL2, Name: "Load Apparent Power L2", Scale: Mul1, Unit: "VA", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrLoadRatioL2, Name: "Load Ratio L2", Scale: Mul1, Unit: "%", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrGridVoltageL3, Name: "Grid Voltage L3", Scale: Mul01, Unit: "V", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
-		{Address: AddrGridCurrentL3, Name: "Grid Current L3", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrInverterVoltageL2, Name: "Inverter Voltage L2", Scale: Mul01, Unit: "V", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrInverterVoltageL3, Name: "Inverter Voltage L3", Scale: Mul01, Unit: "V", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrInverterCurrentL2, Name: "Inverter Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrInverterCurrentL3, Name: "Inverter Current L3", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrLoadCurrentL2, Name: "Load Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrLoadCurrentL3, Name: "Load Current L3", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrLoadPowerL2, Name: "Load Power L2", Scale: Mul1, Unit: "W", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrLoadPowerL3, Name: "Load Power L3", Scale: Mul1, Unit: "W", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrLoadApparentPowerL2, Name: "Load Apparent Power L2", Scale: Mul1, Unit: "VA", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrLoadApparentPowerL3, Name: "Load Apparent Power L3", Scale: Mul1, Unit: "VA", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrLoadRatioL2, Name: "Load Ratio L2", Scale: Mul1, Unit: "%", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 		{Address: AddrLoadRatioL3, Name: "Load Ratio L3", Scale: Mul1, Unit: "%", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrGridCurrentL2, Name: "Grid Current L2", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
+		{Address: AddrGridCurrentL3, Name: "Grid Current L3", Scale: Mul01, Unit: "A", Type: U16, Access: ReadOnly, Count: 1, Optional: true},
 	},
 }
 

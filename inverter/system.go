@@ -173,6 +173,44 @@ func (s *System) RefreshSettings(ctx context.Context) error {
 	return nil
 }
 
+// WriteRegister writes a single register to all units.
+// In parallel systems, settings should be synchronized across units.
+func (s *System) WriteRegister(ctx context.Context, addr uint16, value uint16) error {
+	for _, u := range s.units {
+		u.session.Ctx = ctx
+		if err := u.session.WriteSingleRegister(addr, value); err != nil {
+			return fmt.Errorf("unit %s: write 0x%04X: %w", u.info.Host, addr, err)
+		}
+	}
+	return nil
+}
+
+// ReadFaults reads fault history from the first unit.
+func (s *System) ReadFaults(ctx context.Context) ([]register.FaultRecord, error) {
+	s.mu.RLock()
+	if len(s.units) == 0 {
+		s.mu.RUnlock()
+		return nil, fmt.Errorf("no units")
+	}
+	u := s.units[0]
+	s.mu.RUnlock()
+
+	u.session.Ctx = ctx
+	var records []register.FaultRecord
+	for i := 0; i < register.FaultRecordCount; i++ {
+		addr := uint16(register.FaultHistoryBase) + uint16(i*register.FaultRecordSize)
+		values, err := u.session.ReadRegisters(addr, uint16(register.FaultRecordSize))
+		if err != nil {
+			return nil, fmt.Errorf("fault record %d: %w", i, err)
+		}
+		rec := register.ParseFaultRecord(i, values)
+		if !rec.IsEmpty() {
+			records = append(records, rec)
+		}
+	}
+	return records, nil
+}
+
 // readUnitInfo reads static product info and key settings from a single unit.
 func readUnitInfo(session *modbus.Session, info *UnitInfo) error {
 	if err := bulkRead(session, register.ProductInfo); err != nil {

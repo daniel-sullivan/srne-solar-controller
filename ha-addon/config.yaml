@@ -1,0 +1,48 @@
+name: SRNE Solar Controller
+description: Monitor and control SRNE ASP/ASF-series hybrid inverters via Solarman V5 wifi dongles
+slug: srne-solar-controller
+version: dev
+url: https://github.com/daniel-sullivan/srne-solar-controller
+arch:
+  - amd64
+  - aarch64
+  - armv7
+homeassistant_api: false
+host_network: true
+ingress: true
+ingress_port: 8099
+panel_icon: mdi:solar-power-variant
+panel_title: Solar
+ports:
+  8080/tcp: null
+ports_description:
+  8080/tcp: Web dashboard (optional, ingress preferred)
+services:
+  - mqtt:want
+map:
+  - config:rw
+options:
+  inverters:
+    - host: ""
+      port: 8899
+      slave_id: 1
+      serial: 0
+  poll_interval: 10
+  mqtt_enabled: true
+  mqtt_topic_prefix: homeassistant
+  mqtt_broker: ""
+  mqtt_username: ""
+  mqtt_password: ""
+schema:
+  inverters:
+    - host: str
+      port: port
+      slave_id: "int(1,247)"
+      serial: "int(0,)?"
+  poll_interval: "int(1,3600)"
+  mqtt_enabled: bool
+  mqtt_topic_prefix: str
+  mqtt_broker: url?
+  mqtt_username: str?
+  mqtt_password: password?
+image: ghcr.io/daniel-sullivan/srne-solar-controller/{arch}

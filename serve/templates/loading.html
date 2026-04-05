@@ -1,0 +1,9 @@
+{{define "loading-content"}}
+<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh">
+    <progress class="circle large"></progress>
+    <div class="space"></div>
+    <h5>Starting up...</h5>
+    <p class="small-text">Connecting to inverters and reading initial data</p>
+</div>
+<script>setTimeout(function(){ location.reload(); }, 2000);</script>
+{{end}}

@@ -1,0 +1,10 @@
+{
+  "domain": "srne_solar_controller",
+  "name": "SRNE Solar Controller",
+  "codeowners": ["@daniel-sullivan"],
+  "config_flow": true,
+  "documentation": "https://github.com/daniel-sullivan/srne-solar-controller",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/daniel-sullivan/srne-solar-controller/issues",
+  "version": "0.1.0"
+}

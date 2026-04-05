@@ -1,0 +1,20 @@
+[server]
+poll_interval = "10s"
+web_port = 8080
+settings_refresh = "5m"
+
+[[inverter]]
+host = "10.100.3.92"
+port = 8899
+slave_id = 1
+
+[[inverter]]
+host = "10.100.5.55"
+port = 8899
+slave_id = 2
+
+# Uncomment to enable MQTT publishing with Home Assistant auto-discovery.
+# [mqtt]
+# broker = "tcp://localhost:1883"
+# client_id = "srne"
+# topic_prefix = "homeassistant"

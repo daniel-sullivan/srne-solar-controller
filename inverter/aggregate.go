@@ -144,10 +144,9 @@ func aggregatePhase(units []UnitSnapshot, get func(UnitSnapshot) PhaseData) Phas
 		p.LoadApparentPower += ph.LoadApparentPower
 		p.LoadRatio += ph.LoadRatio
 	}
-	// Voltages: average. Currents/power: sum.
+	// Voltages: average. Currents/power/ratio: sum.
 	p.GridVoltage /= n
 	p.InverterVoltage /= n
-	p.LoadRatio /= n
 	return p
 }
 

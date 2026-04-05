@@ -1,0 +1,44 @@
+{{define "battery"}}
+<article class="surface-variant round large-padding">
+    <nav class="no-margin">
+        <i class="extra primary-text">battery_charging_full</i>
+        <div class="max">
+            <h5 class="no-margin">Battery</h5>
+            {{if .Snapshot}}<p class="small-text {{vc .Changed "bat-status"}}">{{.Battery.ChargeStatusName}}</p>{{end}}
+        </div>
+        {{if .Snapshot}}
+        <div class="right-align">
+            <h2 class="no-margin primary-text {{vc .Changed "bat-soc"}}">{{printf "%.0f" .Battery.SOC}}<span class="large-text">%</span></h2>
+        </div>
+        {{end}}
+    </nav>
+    {{if .Snapshot}}
+    <div class="space"></div>
+    <div class="grid">
+        <div class="s4 m3">
+            <p class="small-text no-margin">Voltage</p>
+            <h6 class="no-margin {{vc .Changed "bat-v"}}">{{printf "%.1f" .Battery.Voltage}} <span class="small-text">V</span></h6>
+        </div>
+        <div class="s4 m3">
+            <p class="small-text no-margin">Current</p>
+            <h6 class="no-margin {{vc .Changed "bat-i"}}">{{printf "%.1f" .Battery.Current}} <span class="small-text">A</span></h6>
+        </div>
+        <div class="s4 m3">
+            <p class="small-text no-margin">Charge Power</p>
+            <h6 class="no-margin {{vc .Changed "bat-w"}}">{{printf "%.0f" .Battery.TotalChargePower}} <span class="small-text">W</span></h6>
+        </div>
+        <div class="s4 m3">
+            <p class="small-text no-margin">Temperatures</p>
+            <p class="no-margin {{vc .Changed "bat-temp"}}">
+                <i class="tiny">thermostat</i> Batt {{printf "%.0f" .Battery.BatteryTemp}}&deg;C
+            </p>
+            <p class="no-margin {{vc .Changed "ctrl-temp"}}">
+                <i class="tiny">memory</i> Ctrl {{printf "%.0f" .Battery.ControllerTemp}}&deg;C
+            </p>
+        </div>
+    </div>
+    {{else}}
+    <p class="small-text">Waiting for data...</p>
+    {{end}}
+</article>
+{{end}}

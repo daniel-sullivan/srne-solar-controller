@@ -1,0 +1,68 @@
+{{define "grid"}}
+<article class="surface-variant round large-padding">
+    <nav class="no-margin">
+        <i class="extra primary-text">electrical_services</i>
+        <div class="max">
+            <h5 class="no-margin">AC Output</h5>
+            {{if .Snapshot}}
+            {{if eq .Inverter.MachineState 4}}
+            <p class="small-text">Mains Connected</p>
+            {{else}}
+            <p class="small-text {{vc .Changed "inv-state"}}">{{.Inverter.MachineStateName}}</p>
+            {{end}}
+            {{end}}
+        </div>
+        {{if .Snapshot}}{{if gt .Inverter.Frequency 0.0}}
+        <div class="right-align">
+            <h2 class="no-margin primary-text {{vc .Changed "inv-freq"}}">{{printf "%.2f" .Inverter.Frequency}} <span class="large-text">Hz</span></h2>
+        </div>
+        {{end}}{{end}}
+    </nav>
+    {{if .Snapshot}}
+    <div class="space"></div>
+    <div class="grid">
+        <div class="s4">
+            <p class="small-text no-margin secondary-text">L1 (120V)</p>
+            <h6 class="no-margin {{vc .Changed "inv-l1-v"}}">{{printf "%.1f" .Grid.L1.InverterVoltage}} <span class="small-text">V</span></h6>
+            <p class="no-margin {{vc .Changed "grid-l1-w"}}">{{printf "%.0f" .Grid.L1.LoadPower}} <span class="small-text">W</span></p>
+            <p class="small-text no-margin {{vc .Changed "grid-l1-va"}}">{{printf "%.0f" .Grid.L1.LoadApparentPower}} VA &middot; {{printf "%.1f" .Grid.L1.LoadCurrent}} A</p>
+            <p class="small-text no-margin {{vc .Changed "grid-l1-pct"}}">{{printf "%.0f" .Grid.L1.LoadRatio}}% rated</p>
+        </div>
+        <div class="s4">
+            <p class="small-text no-margin secondary-text">L2 (120V)</p>
+            <h6 class="no-margin {{vc .Changed "inv-l2-v"}}">{{printf "%.1f" .Grid.L2.InverterVoltage}} <span class="small-text">V</span></h6>
+            <p class="no-margin {{vc .Changed "grid-l2-w"}}">{{printf "%.0f" .Grid.L2.LoadPower}} <span class="small-text">W</span></p>
+            <p class="small-text no-margin {{vc .Changed "grid-l2-va"}}">{{printf "%.0f" .Grid.L2.LoadApparentPower}} VA &middot; {{printf "%.1f" .Grid.L2.LoadCurrent}} A</p>
+            <p class="small-text no-margin {{vc .Changed "grid-l2-pct"}}">{{printf "%.0f" .Grid.L2.LoadRatio}}% rated</p>
+        </div>
+        <div class="s4">
+            <p class="small-text no-margin secondary-text">L1-L2 (240V)</p>
+            <h6 class="no-margin {{vc .Changed "inv-l3-v"}}">{{printf "%.1f" .Grid.L3.InverterVoltage}} <span class="small-text">V</span></h6>
+            <p class="small-text no-margin {{vc .Changed "grid-l3-i"}}">{{printf "%.1f" .Grid.L3.LoadCurrent}} A</p>
+        </div>
+    </div>
+    {{if eq .Inverter.MachineState 4}}
+    <div class="space"></div>
+    <p class="small-text no-margin secondary-text">Grid Input</p>
+    <div class="grid">
+        <div class="s4">
+            <p class="small-text no-margin">L1</p>
+            <h6 class="no-margin {{vc .Changed "grid-l1-v"}}">{{printf "%.1f" .Grid.L1.GridVoltage}} <span class="small-text">V</span></h6>
+        </div>
+        <div class="s4">
+            <p class="small-text no-margin">L2</p>
+            <h6 class="no-margin {{vc .Changed "grid-l2-v"}}">{{printf "%.1f" .Grid.L2.GridVoltage}} <span class="small-text">V</span></h6>
+        </div>
+        <div class="s4">
+            {{if gt .Grid.MainsChargeCurr 0.0}}
+            <p class="small-text no-margin">Charge</p>
+            <h6 class="no-margin {{vc .Changed "grid-charge"}}">{{printf "%.1f" .Grid.MainsChargeCurr}} <span class="small-text">A</span></h6>
+            {{end}}
+        </div>
+    </div>
+    {{end}}
+    {{else}}
+    <p class="small-text">Waiting for data...</p>
+    {{end}}
+</article>
+{{end}}

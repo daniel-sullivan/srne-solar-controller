@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 	"math/rand/v2"
 	"net"
 	"strconv"
@@ -82,6 +83,29 @@ func (c *Client) Close() error {
 		return c.conn.Close()
 	}
 	return nil
+}
+
+// reconnect closes the dead connection and opens a fresh one.
+func (c *Client) reconnect() error {
+	if c.conn != nil {
+		_ = c.conn.Close()
+		c.conn = nil
+	}
+	c.connSerial = c.serial // reset so auto-detect runs again if needed
+	return c.Connect()
+}
+
+// isConnError reports whether err indicates a broken TCP connection
+// (broken pipe, connection reset, EOF) that may be resolved by reconnecting.
+func isConnError(err error) bool {
+	if err == nil {
+		return false
+	}
+	var opErr *net.OpError
+	if errors.As(err, &opErr) && !opErr.Timeout() {
+		return true
+	}
+	return errors.Is(err, io.EOF) || errors.Is(err, net.ErrClosed)
 }
 
 // ProbeSlaveID discovers the correct slave ID for the device behind this dongle.
@@ -177,6 +201,20 @@ func (c *Client) sendRequest(modbusFrame []byte) ([]byte, error) {
 		}
 	}
 
+	resp, err := c.sendAndReceive(modbusFrame)
+	if err == nil || !isConnError(err) {
+		return resp, err
+	}
+
+	// Connection error (broken pipe, reset, EOF) — reconnect and retry once.
+	if reconnErr := c.reconnect(); reconnErr != nil {
+		return nil, fmt.Errorf("reconnect after %v: %w", err, reconnErr)
+	}
+	if c.connSerial == 0 {
+		if probeErr := c.probeSerial(modbusFrame); probeErr != nil {
+			return nil, fmt.Errorf("serial auto-detect after reconnect: %w", probeErr)
+		}
+	}
 	return c.sendAndReceive(modbusFrame)
 }
 
@@ -227,12 +265,17 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 		fmt.Printf("TX (%d bytes): % X\n", len(frame), frame)
 	}
 
+	// The expected function code is at modbusFrame[1] (after slave ID).
+	// We filter responses to match this, skipping interleaved responses
+	// from other services sharing the dongle connection.
+	expectedFunc := modbusFrame[1]
+
 	_ = c.conn.SetWriteDeadline(time.Now().Add(c.timeout))
 	if _, err := c.conn.Write(frame); err != nil {
 		return nil, fmt.Errorf("write: %w", err)
 	}
 
-	// Read frames until we get one with valid MODBUS data.
+	// Read frames until we get one with valid MODBUS data matching our request.
 	// The dongle first sends a short ack frame, then later the actual
 	// data frame once the inverter responds on the RS485 bus. If the
 	// inverter doesn't respond, the dongle sends a second short frame
@@ -269,6 +312,19 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 				}
 				continue
 			}
+
+			// Check function code matches our request (ignore interleaved responses).
+			// Error responses have bit 7 set on the function code.
+			if len(inner) >= 2 {
+				respFunc := inner[1] & 0x7F
+				if respFunc != expectedFunc {
+					if c.Debug {
+						fmt.Printf("  skip interleaved response: func 0x%02X (want 0x%02X)\n", respFunc, expectedFunc)
+					}
+					continue
+				}
+			}
+
 			if c.Debug {
 				fmt.Printf("  modbus (%d bytes): % X\n", len(inner), inner)
 			}

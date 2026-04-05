@@ -1,0 +1,11 @@
+{{define "content"}}
+{{if eq .Page "loading"}}
+    {{template "loading-content" .}}
+{{else if eq .Page "settings"}}
+    {{template "settings-content" .}}
+{{else if eq .Page "faults"}}
+    {{template "faults-content" .}}
+{{else}}
+    {{template "dashboard-content" .}}
+{{end}}
+{{end}}
