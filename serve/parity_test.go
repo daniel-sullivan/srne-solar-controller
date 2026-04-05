@@ -43,16 +43,6 @@ func (ms *messageStore) get(topic string) ([]byte, bool) {
 	return v, ok
 }
 
-func (ms *messageStore) topics() []string {
-	ms.mu.Lock()
-	defer ms.mu.Unlock()
-	topics := make([]string, 0, len(ms.messages))
-	for t := range ms.messages {
-		topics = append(topics, t)
-	}
-	return topics
-}
-
 // startTestBroker starts an embedded mochi-mqtt broker on a random port.
 // Returns the broker, its TCP address, and a message store that captures all published messages.
 func startTestBroker(t *testing.T) (*mqtt.Server, string, *messageStore) {
@@ -79,7 +69,8 @@ func TestMQTTRESTSensorParity(t *testing.T) {
 	_, addr, store := startTestBroker(t)
 
 	// Set up mock system with known values
-	sys := newTestSystem(t) // SOC=85, PV=600+440, Load=500
+	sys := newTestSystem(t)  // SOC=85, PV=600+440, Load=500
+	unitInfos := sys.Units() // capture before hub starts to avoid race
 	hub := NewHub(sys, 50*time.Millisecond, 50*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -93,7 +84,6 @@ func TestMQTTRESTSensorParity(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	unitInfos := sys.Units()
 	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
 	require.NoError(t, err)
 	go pub.Run(ctx)
@@ -178,6 +168,7 @@ func TestMQTTRESTControlParity(t *testing.T) {
 	_, addr, store := startTestBroker(t)
 
 	sys := newTestSystem(t)
+	unitInfos := sys.Units()
 	hub := NewHub(sys, 50*time.Millisecond, 50*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -190,7 +181,7 @@ func TestMQTTRESTControlParity(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	pub, err := NewMQTTPublisher(mqttCfg, hub, sys.Units())
+	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
 	require.NoError(t, err)
 	go pub.Run(ctx)
 	time.Sleep(300 * time.Millisecond)
@@ -328,6 +319,7 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 	broker, addr, store := startTestBroker(t)
 
 	sys := newTestSystem(t)
+	unitInfos := sys.Units()
 	hub := NewHub(sys, 50*time.Millisecond, 50*time.Millisecond)
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -340,7 +332,7 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	pub, err := NewMQTTPublisher(mqttCfg, hub, sys.Units())
+	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
 	require.NoError(t, err)
 	go pub.Run(ctx)
 	time.Sleep(300 * time.Millisecond)
