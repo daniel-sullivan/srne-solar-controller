@@ -124,7 +124,8 @@ type StatsData struct {
 	AccumLoadConsumption   float64    `json:"accum_load_consumption"`   // kWh
 	AccumBatteryCharge     float64    `json:"accum_battery_charge"`     // AH
 	AccumBatteryDischarge  float64    `json:"accum_battery_discharge"`  // AH
-	AccumMainsCharge       float64    `json:"accum_mains_charge"`       // kWh
+	AccumMainsCharge       float64    `json:"accum_mains_charge"`       // AH
+	AccumEnergyImport      float64    `json:"accum_energy_import"`      // kWh
 	TotalRunningDays       float64    `json:"total_running_days"`
 	PVGenHistory           [7]float64 `json:"pv_gen_history"`         // AH, [0]=day-7 .. [6]=day-1
 	BattChargeHistory      [7]float64 `json:"batt_charge_history"`    // AH

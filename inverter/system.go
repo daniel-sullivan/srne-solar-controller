@@ -42,16 +42,19 @@ type System struct {
 	parallel bool
 }
 
-// NewSystem creates a system from pre-established modbus.Client connections.
-// Each client should already be connected. The caller is responsible for
-// creating and connecting the clients (e.g. via solarman.NewClient or mock).
-func NewSystem(clients []modbus.Client) *System {
+// NewSystem creates a system from pre-established modbus.Client connections
+// and their corresponding hosts. Each client should already be connected.
+// The caller is responsible for creating and connecting the clients
+// (e.g. via solarman.NewClient or mock).
+func NewSystem(clients []modbus.Client, hosts []string) *System {
 	s := &System{}
-	for _, c := range clients {
+	for i, c := range clients {
 		session := modbus.NewSession(c)
-		s.units = append(s.units, &unit{
-			session: session,
-		})
+		u := &unit{session: session}
+		if i < len(hosts) {
+			u.info.Host = hosts[i]
+		}
+		s.units = append(s.units, u)
 	}
 	return s
 }

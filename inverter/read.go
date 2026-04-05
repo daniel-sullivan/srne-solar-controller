@@ -210,7 +210,7 @@ func readPhaseData(session *modbus.Session, p *PhaseData,
 	p.GridVoltage = readScaled(session, gridV, register.Mul01)
 	p.GridCurrent = readScaled(session, gridI, register.Mul01)
 	p.InverterVoltage = readScaled(session, invV, register.Mul01)
-	p.InverterCurrent = readScaled(session, invI, register.Mul01)
+	p.InverterCurrent = readSigned(session, invI, register.Mul01)
 	p.LoadCurrent = readScaled(session, loadI, register.Mul01)
 	p.LoadPower = readScaled(session, loadP, nil)
 	p.LoadApparentPower = readScaled(session, loadVA, nil)
@@ -234,7 +234,8 @@ func readStatsData(session *modbus.Session, s *StatsData) error {
 	s.AccumLoadConsumption = float64(readU32(session, register.AddrAccumLoadConsumption)) * 0.1
 	s.AccumBatteryCharge = float64(readU32(session, register.AddrAccumBatteryCharge))
 	s.AccumBatteryDischarge = float64(readU32(session, register.AddrAccumBatteryDischarge))
-	s.AccumMainsCharge = float64(readU32(session, register.AddrAccumMainsCharge)) * 0.1
+	s.AccumMainsCharge = float64(readU32(session, register.AddrAccumMainsCharge))
+	s.AccumEnergyImport = float64(readU32(session, register.AddrAccumEnergyImport)) * 0.1
 	s.TotalRunningDays = readScaled(session, register.AddrTotalRunningDays, nil)
 
 	// 7-day history arrays

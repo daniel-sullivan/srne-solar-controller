@@ -154,7 +154,7 @@ func TestNewSystemWithClients(t *testing.T) {
 	sim2.SetPV(900, 300)
 	sim2.SetParallelMode(1)
 
-	sys := NewSystem([]modbus.Client{sim1, sim2})
+	sys := NewSystem([]modbus.Client{sim1, sim2}, nil)
 	require.NoError(t, sys.Init(context.Background()))
 	assert.True(t, sys.IsParallel())
 

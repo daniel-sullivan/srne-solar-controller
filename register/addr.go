@@ -259,6 +259,7 @@ const (
 	AddrGridChargeToday         = 0xF03C
 	AddrEnergyImportToday       = 0xF03D
 	AddrAccumMainsCharge        = 0xF046
+	AddrAccumEnergyImport       = 0xF048
 	AddrAccumInverterHours      = 0xF04A
 	AddrAccumBypassHours        = 0xF04B
 )

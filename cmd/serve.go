@@ -100,7 +100,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 	}
 
 	// Initialize inverter system
-	system := inverter.NewSystem(clients)
+	hosts := make([]string, len(cfg.Inverters))
+	for i, inv := range cfg.Inverters {
+		hosts[i] = inv.Host
+	}
+	system := inverter.NewSystem(clients, hosts)
 	if err := system.Init(ctx); err != nil {
 		return fmt.Errorf("system init: %w", err)
 	}

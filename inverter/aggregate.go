@@ -195,6 +195,7 @@ func aggregateStats(units []UnitSnapshot) StatsData {
 		s.AccumBatteryCharge += u.Stats.AccumBatteryCharge
 		s.AccumBatteryDischarge += u.Stats.AccumBatteryDischarge
 		s.AccumMainsCharge += u.Stats.AccumMainsCharge
+		s.AccumEnergyImport += u.Stats.AccumEnergyImport
 		for i := 0; i < 7; i++ {
 			s.PVGenHistory[i] += u.Stats.PVGenHistory[i]
 			s.BattChargeHistory[i] += u.Stats.BattChargeHistory[i]

@@ -13,17 +13,40 @@ import (
 
 func TestSensorRegistry(t *testing.T) {
 	// All sensors must have key, name, and value path
-	for _, s := range systemSensors {
-		assert.NotEmpty(t, s.Key, "sensor missing key")
-		assert.NotEmpty(t, s.Name, "sensor %s missing name", s.Key)
-		assert.NotEmpty(t, s.ValuePath, "sensor %s missing value path", s.Key)
+	for _, list := range [][]sensorDef{systemSensors, unitSensors} {
+		for _, s := range list {
+			assert.NotEmpty(t, s.Key, "sensor missing key")
+			assert.NotEmpty(t, s.Name, "sensor %s missing name", s.Key)
+			assert.NotEmpty(t, s.ValuePath, "sensor %s missing value path", s.Key)
+		}
 	}
+	// System sensors should NOT have per-tracker PV entries
+	for _, s := range systemSensors {
+		assert.NotContains(t, s.Key, "pv1_", "system sensors should not have per-tracker PV")
+		assert.NotContains(t, s.Key, "pv2_", "system sensors should not have per-tracker PV")
+	}
+	// Unit sensors should have per-tracker PV entries
+	var hasPV1 bool
+	for _, s := range unitSensors {
+		if s.Key == "pv1_power" {
+			hasPV1 = true
+		}
+	}
+	assert.True(t, hasPV1, "unit sensors should have per-tracker PV")
 }
 
 func TestDiscoveryPayloadStructure(t *testing.T) {
 	prefix := "homeassistant"
 	deviceID := "srne_system"
-	s := systemSensors[0] // battery_soc
+	// Find the battery_soc sensor
+	var s sensorDef
+	for _, sensor := range systemSensors {
+		if sensor.Key == "battery_soc" {
+			s = sensor
+			break
+		}
+	}
+	require.NotEmpty(t, s.Key, "battery_soc sensor not found")
 
 	payload := map[string]any{
 		"name":               s.Name,

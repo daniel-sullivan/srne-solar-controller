@@ -22,7 +22,7 @@ func newTestSystem(t *testing.T) *inverter.System {
 	require.NoError(t, sim.Connect())
 	t.Cleanup(func() { _ = sim.Close() })
 
-	sys := inverter.NewSystem([]modbus.Client{sim})
+	sys := inverter.NewSystem([]modbus.Client{sim}, nil)
 	require.NoError(t, sys.Init(context.Background()))
 	return sys
 }
