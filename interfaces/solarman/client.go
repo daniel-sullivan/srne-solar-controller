@@ -191,7 +191,9 @@ func (c *Client) WriteMultipleRegisters(startAddr uint16, values []uint16) error
 
 func (c *Client) sendRequest(modbusFrame []byte) ([]byte, error) {
 	if c.conn == nil {
-		return nil, fmt.Errorf("not connected")
+		if err := c.reconnect(); err != nil {
+			return nil, fmt.Errorf("not connected: %w", err)
+		}
 	}
 
 	// If we don't have a serial yet, probe the dongle to learn it.

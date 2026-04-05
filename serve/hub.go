@@ -204,9 +204,25 @@ func (h *Hub) handleWrite(ctx context.Context, req writeRequest) {
 func (h *Hub) refreshSettings(ctx context.Context) {
 	h.mu.RLock()
 	sys := h.system
+	latest := h.latest
 	h.mu.RUnlock()
 	if sys == nil {
 		return
+	}
+
+	// Skip settings refresh when all units are stale (disconnected).
+	// The poll loop will recover connections and trigger a refresh then.
+	if latest != nil && len(latest.Units) > 0 {
+		allStale := true
+		for _, u := range latest.Units {
+			if !u.Stale {
+				allStale = false
+				break
+			}
+		}
+		if allStale {
+			return
+		}
 	}
 
 	if err := sys.RefreshSettings(ctx); err != nil {
