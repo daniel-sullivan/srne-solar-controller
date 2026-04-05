@@ -8,6 +8,9 @@ arch:
   - aarch64
   - armv7
 homeassistant_api: false
+init: false
+startup: services
+timeout: 60
 host_network: true
 ingress: true
 ingress_port: 8099
@@ -31,7 +34,7 @@ options:
 schema:
   inverters:
     - host: str
-      port: port
+      port: "port(1,65535)"
       slave_id: "int(1,247)"
       serial: "int(0,)?"
   poll_interval: "int(1,3600)"

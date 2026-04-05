@@ -1,0 +1,9 @@
+.git
+.github
+.idea
+.pre-commit-config.yaml
+.dockerignore
+docs
+README.md
+CLAUDE.md
+LICENSE
