@@ -1,4 +1,4 @@
-ARG BUILD_FROM
+ARG BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.20
 FROM golang:1.26-alpine AS builder
 
 RUN apk add --no-cache git
