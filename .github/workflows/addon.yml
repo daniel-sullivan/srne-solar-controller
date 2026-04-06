@@ -48,15 +48,15 @@ jobs:
             echo "" > /tmp/diffstat.txt
           fi
 
-          claude -p --model claude-sonnet-4-6 --allowedTools Read,Edit \
-            "Update ha-addon/CHANGELOG.md with a new ## ${VERSION} section after the '# Changelog' header.
-             Read /tmp/commits.txt for the commits and /tmp/diffstat.txt for changed files.
-             Read ha-addon/CHANGELOG.md first to match the existing style.
-             Guidelines:
-             - Concise, user-facing bullet points
-             - Note breaking changes with **Breaking:**
-             - Do not modify any other sections" \
-          || echo "::warning::Failed to generate changelog, skipping"
+          cat <<EOF | claude -p --model claude-sonnet-4-6 --allowedTools Read,Edit || echo "::warning::Failed to generate changelog, skipping"
+          Update ha-addon/CHANGELOG.md with a new ## ${VERSION} section after the '# Changelog' header.
+          Read /tmp/commits.txt for the commits and /tmp/diffstat.txt for changed files.
+          Read ha-addon/CHANGELOG.md first to match the existing style.
+          Guidelines:
+          - Concise, user-facing bullet points
+          - Note breaking changes with **Breaking:**
+          - Do not modify any other sections
+          EOF
 
       - name: Commit release
         run: |
