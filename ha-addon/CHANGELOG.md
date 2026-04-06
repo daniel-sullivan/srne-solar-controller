@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.2
+
+- Separate per-phase load data from grid data in snapshot structs
+  - Per-phase load sensors now under `load.l1`/`load.l2`/`load.l3` (was `grid.l1`/`grid.l2`/`grid.l3`)
+  - MQTT discovery paths updated: e.g. `load.l1.power` replaces `grid.l1.load_power`
+  - **Breaking:** HA entities using old JSON paths will need re-discovery
+- Update GitHub Actions to Node.js 24 compatible versions
+- Fix Dockerfile `InvalidDefaultArgInFrom` lint warning
+
 ## 1.1.1
 
 - Auto-reconnect dropped dongle TCP connections instead of staying permanently disconnected

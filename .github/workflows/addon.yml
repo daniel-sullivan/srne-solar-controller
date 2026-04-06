@@ -16,6 +16,8 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # full history for changelog generation
 
       - name: Set version from tag
         id: version
@@ -28,11 +30,39 @@ jobs:
           version="${GITHUB_REF_NAME#v}"
           sed -i "s/^version:.*/version: ${version}/" ha-addon/config.yaml
 
-      - name: Commit version bump
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Generate changelog
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
+
+          if [ -n "$PREV_TAG" ]; then
+            git log --oneline "${PREV_TAG}..HEAD" > /tmp/commits.txt
+            git diff "${PREV_TAG}..HEAD" --stat > /tmp/diffstat.txt
+          else
+            git log --oneline > /tmp/commits.txt
+            echo "" > /tmp/diffstat.txt
+          fi
+
+          claude -p --model claude-sonnet-4-6 --allowedTools Read,Edit \
+            "Update ha-addon/CHANGELOG.md with a new ## ${VERSION} section after the '# Changelog' header.
+             Read /tmp/commits.txt for the commits and /tmp/diffstat.txt for changed files.
+             Read ha-addon/CHANGELOG.md first to match the existing style.
+             Guidelines:
+             - Concise, user-facing bullet points
+             - Note breaking changes with **Breaking:**
+             - Do not modify any other sections" \
+          || echo "::warning::Failed to generate changelog, skipping"
+
+      - name: Commit release
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add ha-addon/config.yaml
+          git add ha-addon/config.yaml ha-addon/CHANGELOG.md
           git diff --cached --quiet || git commit -m "Release ${GITHUB_REF_NAME}: update add-on version"
           git push origin HEAD:master
 
