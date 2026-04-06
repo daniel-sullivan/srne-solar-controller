@@ -58,6 +58,18 @@ jobs:
           - Do not modify any other sections
           EOF
 
+      - name: Extract release notes
+        id: notes
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Extract the section for this version (between ## VERSION and the next ## or EOF)
+          NOTES=$(sed -n "/^## ${VERSION}$/,/^## /{/^## ${VERSION}$/d;/^## /d;p}" ha-addon/CHANGELOG.md)
+          {
+            echo "body<<NOTES_EOF"
+            echo "$NOTES"
+            echo "NOTES_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Commit release
         run: |
           git config user.name "github-actions[bot]"
@@ -65,6 +77,11 @@ jobs:
           git add ha-addon/config.yaml ha-addon/CHANGELOG.md
           git diff --cached --quiet || git commit -m "Release ${GITHUB_REF_NAME}: update add-on version"
           git push origin HEAD:master
+
+      - name: Update GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" --notes "${{ steps.notes.outputs.body }}"
 
   build:
     needs: version
