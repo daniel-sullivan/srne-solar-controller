@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.3
+
+- CI now extracts release notes from the changelog and publishes them to GitHub releases automatically
+
 ## 1.1.2
 
 - Separate per-phase load data from grid data in snapshot structs
