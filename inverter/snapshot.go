@@ -41,7 +41,8 @@ type BatteryData struct {
 	BatteryTemp      float64 `json:"battery_temp"`    // °C
 	ChargeStatus     uint16  `json:"charge_status"`
 	ChargeStatusName string  `json:"charge_status_name"`
-	TotalChargePower float64 `json:"total_charge_power"` // W
+	TotalChargePower float64 `json:"total_charge_power"` // W (magnitude only)
+	SignedPower      float64 `json:"signed_power"`       // W (positive = charging, negative = discharging)
 	FaultAlarmBits   uint32  `json:"fault_alarm_bits"`
 	// BMS fields (zero if unavailable)
 	BMSVoltage            float64 `json:"bms_voltage"`              // V
@@ -63,35 +64,43 @@ type PVData struct {
 	TotalPower float64 `json:"total_power"` // W (PV1 + PV2, summed across units)
 }
 
-// PhaseData holds per-phase AC measurements.
-type PhaseData struct {
-	GridVoltage       float64 `json:"grid_voltage"`        // V
-	GridCurrent       float64 `json:"grid_current"`        // A
-	InverterVoltage   float64 `json:"inverter_voltage"`    // V
-	InverterCurrent   float64 `json:"inverter_current"`    // A
-	LoadCurrent       float64 `json:"load_current"`        // A
-	LoadPower         float64 `json:"load_power"`          // W
-	LoadApparentPower float64 `json:"load_apparent_power"` // VA
-	LoadRatio         float64 `json:"load_ratio"`          // %
+// GridPhaseData holds per-phase grid and inverter AC measurements.
+type GridPhaseData struct {
+	GridVoltage     float64 `json:"grid_voltage"`     // V
+	GridCurrent     float64 `json:"grid_current"`     // A
+	InverterVoltage float64 `json:"inverter_voltage"` // V
+	InverterCurrent float64 `json:"inverter_current"` // A
 }
 
-// LoadData holds load consumption data.
+// LoadPhaseData holds per-phase load measurements.
+type LoadPhaseData struct {
+	Current       float64 `json:"current"`        // A
+	Power         float64 `json:"power"`          // W
+	ApparentPower float64 `json:"apparent_power"` // VA
+	Ratio         float64 `json:"ratio"`          // %
+}
+
+// LoadData holds load consumption data with per-phase detail.
 type LoadData struct {
-	TotalPower         float64 `json:"total_power"`          // W (sum of all phases)
-	TotalApparentPower float64 `json:"total_apparent_power"` // VA
-	PowerFactor        float64 `json:"power_factor"`
-	DCVoltage          float64 `json:"dc_voltage"` // V
-	DCCurrent          float64 `json:"dc_current"` // A
-	DCPower            float64 `json:"dc_power"`   // W
+	TotalPower         float64       `json:"total_power"`          // W (sum of all phases)
+	TotalApparentPower float64       `json:"total_apparent_power"` // VA
+	PowerFactor        float64       `json:"power_factor"`
+	DCVoltage          float64       `json:"dc_voltage"` // V
+	DCCurrent          float64       `json:"dc_current"` // A
+	DCPower            float64       `json:"dc_power"`   // W
+	L1                 LoadPhaseData `json:"l1"`
+	L2                 LoadPhaseData `json:"l2"`
+	L3                 LoadPhaseData `json:"l3"`
 }
 
 // GridData holds grid/mains data with per-phase detail.
 type GridData struct {
-	Frequency       float64   `json:"frequency"`         // Hz
-	MainsChargeCurr float64   `json:"mains_charge_curr"` // A
-	L1              PhaseData `json:"l1"`
-	L2              PhaseData `json:"l2"`
-	L3              PhaseData `json:"l3"`
+	Frequency       float64       `json:"frequency"`         // Hz
+	MainsChargeCurr float64       `json:"mains_charge_curr"` // A
+	TotalPower      float64       `json:"total_power"`       // W (sum of V×I across phases)
+	L1              GridPhaseData `json:"l1"`
+	L2              GridPhaseData `json:"l2"`
+	L3              GridPhaseData `json:"l3"`
 }
 
 // InverterData holds inverter operational state.

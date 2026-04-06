@@ -29,6 +29,15 @@ func readUnitSnapshot(session *modbus.Session) (UnitSnapshot, error) {
 		snap.Stats.BatteryDischargeEnergy = snap.Stats.BatteryDischargeToday * snap.Battery.Voltage / 1000
 	}
 
+	// Signed battery power: positive = charging, negative = discharging.
+	// SRNE convention: battery current is negative when charging.
+	snap.Battery.SignedPower = -snap.Battery.Current * snap.Battery.Voltage
+
+	// Grid total power from per-phase V×I.
+	snap.Grid.TotalPower = snap.Grid.L1.GridVoltage*snap.Grid.L1.GridCurrent +
+		snap.Grid.L2.GridVoltage*snap.Grid.L2.GridCurrent +
+		snap.Grid.L3.GridVoltage*snap.Grid.L3.GridCurrent
+
 	snap.Errors = errs
 	return snap, nil
 }
@@ -178,43 +187,50 @@ func readInverterAndLoadData(session *modbus.Session, load *LoadData, grid *Grid
 	// Grid
 	grid.Frequency = readScaled(session, register.AddrGridFrequency, register.Mul001)
 	grid.MainsChargeCurr = readScaled(session, register.AddrMainsChargeCurrent, register.Mul01)
-	readPhaseData(session, &grid.L1,
+	readGridPhase(session, &grid.L1,
 		register.AddrGridVoltageL1, register.AddrGridCurrentL1,
-		register.AddrInverterVoltageL1, register.AddrInverterCurrentL1,
+		register.AddrInverterVoltageL1, register.AddrInverterCurrentL1)
+	readGridPhase(session, &grid.L2,
+		register.AddrGridVoltageL2, register.AddrGridCurrentL2,
+		register.AddrInverterVoltageL2, register.AddrInverterCurrentL2)
+	readGridPhase(session, &grid.L3,
+		register.AddrGridVoltageL3, register.AddrGridCurrentL3,
+		register.AddrInverterVoltageL3, register.AddrInverterCurrentL3)
+
+	// Load (per-phase + aggregates)
+	readLoadPhase(session, &load.L1,
 		register.AddrLoadCurrentL1, register.AddrLoadPowerL1,
 		register.AddrLoadApparentPowerL1, register.AddrLoadRatioL1)
-	readPhaseData(session, &grid.L2,
-		register.AddrGridVoltageL2, register.AddrGridCurrentL2,
-		register.AddrInverterVoltageL2, register.AddrInverterCurrentL2,
+	readLoadPhase(session, &load.L2,
 		register.AddrLoadCurrentL2, register.AddrLoadPowerL2,
 		register.AddrLoadApparentPowerL2, register.AddrLoadRatioL2)
-	readPhaseData(session, &grid.L3,
-		register.AddrGridVoltageL3, register.AddrGridCurrentL3,
-		register.AddrInverterVoltageL3, register.AddrInverterCurrentL3,
+	readLoadPhase(session, &load.L3,
 		register.AddrLoadCurrentL3, register.AddrLoadPowerL3,
 		register.AddrLoadApparentPowerL3, register.AddrLoadRatioL3)
-
-	// Load
 	load.PowerFactor = readSigned(session, register.AddrLoadPowerFactor, register.Mul001)
 	load.DCVoltage = readScaled(session, register.AddrDCLoadVoltage, register.Mul01)
 	load.DCCurrent = readScaled(session, register.AddrDCLoadCurrent, register.Mul001)
 	load.DCPower = readScaled(session, register.AddrDCLoadPower, nil)
-	load.TotalPower = grid.L1.LoadPower + grid.L2.LoadPower + grid.L3.LoadPower
-	load.TotalApparentPower = grid.L1.LoadApparentPower + grid.L2.LoadApparentPower + grid.L3.LoadApparentPower
+	load.TotalPower = load.L1.Power + load.L2.Power + load.L3.Power
+	load.TotalApparentPower = load.L1.ApparentPower + load.L2.ApparentPower + load.L3.ApparentPower
 
 	return nil
 }
 
-func readPhaseData(session *modbus.Session, p *PhaseData,
-	gridV, gridI, invV, invI, loadI, loadP, loadVA, loadRatio uint16) {
+func readGridPhase(session *modbus.Session, p *GridPhaseData,
+	gridV, gridI, invV, invI uint16) {
 	p.GridVoltage = readScaled(session, gridV, register.Mul01)
 	p.GridCurrent = readScaled(session, gridI, register.Mul01)
 	p.InverterVoltage = readScaled(session, invV, register.Mul01)
 	p.InverterCurrent = readSigned(session, invI, register.Mul01)
-	p.LoadCurrent = readScaled(session, loadI, register.Mul01)
-	p.LoadPower = readScaled(session, loadP, nil)
-	p.LoadApparentPower = readScaled(session, loadVA, nil)
-	p.LoadRatio = readScaled(session, loadRatio, nil)
+}
+
+func readLoadPhase(session *modbus.Session, p *LoadPhaseData,
+	loadI, loadP, loadVA, loadRatio uint16) {
+	p.Current = readScaled(session, loadI, register.Mul01)
+	p.Power = readScaled(session, loadP, nil)
+	p.ApparentPower = readScaled(session, loadVA, nil)
+	p.Ratio = readScaled(session, loadRatio, nil)
 }
 
 func readStatsData(session *modbus.Session, s *StatsData) error {

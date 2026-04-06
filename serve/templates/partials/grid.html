@@ -24,21 +24,21 @@
         <div class="s4">
             <p class="small-text no-margin secondary-text">L1 (120V)</p>
             <h6 class="no-margin {{vc .Changed "inv-l1-v"}}">{{printf "%.1f" .Grid.L1.InverterVoltage}} <span class="small-text">V</span></h6>
-            <p class="no-margin {{vc .Changed "grid-l1-w"}}">{{printf "%.0f" .Grid.L1.LoadPower}} <span class="small-text">W</span></p>
-            <p class="small-text no-margin {{vc .Changed "grid-l1-va"}}">{{printf "%.0f" .Grid.L1.LoadApparentPower}} VA &middot; {{printf "%.1f" .Grid.L1.LoadCurrent}} A</p>
-            <p class="small-text no-margin {{vc .Changed "grid-l1-pct"}}">{{printf "%.0f" .Grid.L1.LoadRatio}}% rated</p>
+            <p class="no-margin {{vc .Changed "grid-l1-w"}}">{{printf "%.0f" .Load.L1.Power}} <span class="small-text">W</span></p>
+            <p class="small-text no-margin {{vc .Changed "grid-l1-va"}}">{{printf "%.0f" .Load.L1.ApparentPower}} VA &middot; {{printf "%.1f" .Load.L1.Current}} A</p>
+            <p class="small-text no-margin {{vc .Changed "grid-l1-pct"}}">{{printf "%.0f" .Load.L1.Ratio}}% rated</p>
         </div>
         <div class="s4">
             <p class="small-text no-margin secondary-text">L2 (120V)</p>
             <h6 class="no-margin {{vc .Changed "inv-l2-v"}}">{{printf "%.1f" .Grid.L2.InverterVoltage}} <span class="small-text">V</span></h6>
-            <p class="no-margin {{vc .Changed "grid-l2-w"}}">{{printf "%.0f" .Grid.L2.LoadPower}} <span class="small-text">W</span></p>
-            <p class="small-text no-margin {{vc .Changed "grid-l2-va"}}">{{printf "%.0f" .Grid.L2.LoadApparentPower}} VA &middot; {{printf "%.1f" .Grid.L2.LoadCurrent}} A</p>
-            <p class="small-text no-margin {{vc .Changed "grid-l2-pct"}}">{{printf "%.0f" .Grid.L2.LoadRatio}}% rated</p>
+            <p class="no-margin {{vc .Changed "grid-l2-w"}}">{{printf "%.0f" .Load.L2.Power}} <span class="small-text">W</span></p>
+            <p class="small-text no-margin {{vc .Changed "grid-l2-va"}}">{{printf "%.0f" .Load.L2.ApparentPower}} VA &middot; {{printf "%.1f" .Load.L2.Current}} A</p>
+            <p class="small-text no-margin {{vc .Changed "grid-l2-pct"}}">{{printf "%.0f" .Load.L2.Ratio}}% rated</p>
         </div>
         <div class="s4">
             <p class="small-text no-margin secondary-text">L1-L2 (240V)</p>
             <h6 class="no-margin {{vc .Changed "inv-l3-v"}}">{{printf "%.1f" .Grid.L3.InverterVoltage}} <span class="small-text">V</span></h6>
-            <p class="small-text no-margin {{vc .Changed "grid-l3-i"}}">{{printf "%.1f" .Grid.L3.LoadCurrent}} A</p>
+            <p class="small-text no-margin {{vc .Changed "grid-l3-i"}}">{{printf "%.1f" .Load.L3.Current}} A</p>
         </div>
     </div>
     {{if eq .Inverter.MachineState 4}}

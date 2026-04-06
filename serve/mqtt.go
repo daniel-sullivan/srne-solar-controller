@@ -32,6 +32,7 @@ var systemSensors = []sensorDef{
 	{"battery_voltage", "Battery Voltage", "V", "voltage", "measurement", "mdi:flash", "battery.voltage"},
 	{"battery_current", "Battery Current", "A", "current", "measurement", "mdi:current-dc", "battery.current"},
 	{"battery_power", "Battery Power", "W", "power", "measurement", "mdi:battery-charging", "battery.total_charge_power"},
+	{"battery_power_signed", "Battery Power (Signed)", "W", "power", "measurement", "mdi:battery-sync", "battery.signed_power"},
 	{"charge_status", "Charge Status", "", "", "", "mdi:battery-sync", "battery.charge_status_name"},
 	{"bms_voltage", "BMS Voltage", "V", "voltage", "measurement", "mdi:flash", "battery.bms_voltage"},
 	{"bms_current", "BMS Current", "A", "current", "measurement", "mdi:current-dc", "battery.bms_current"},
@@ -47,26 +48,31 @@ var systemSensors = []sensorDef{
 	// Grid (shared grid connection)
 	{"grid_frequency", "Grid Frequency", "Hz", "frequency", "measurement", "mdi:sine-wave", "grid.frequency"},
 	{"mains_charge_current", "Mains Charge Current", "A", "current", "measurement", "mdi:transmission-tower-export", "grid.mains_charge_curr"},
+	{"grid_power", "Grid Power", "W", "power", "measurement", "mdi:transmission-tower", "grid.total_power"},
 
-	// Grid L1 (voltage = shared grid, current/power = summed)
+	// Grid L1
 	{"grid_voltage_l1", "Grid Voltage L1", "V", "voltage", "measurement", "mdi:transmission-tower", "grid.l1.grid_voltage"},
 	{"grid_current_l1", "Grid Current L1", "A", "current", "measurement", "mdi:transmission-tower", "grid.l1.grid_current"},
 	{"inverter_voltage_l1", "Inverter Voltage L1", "V", "voltage", "measurement", "mdi:sine-wave", "grid.l1.inverter_voltage"},
 	{"inverter_current_l1", "Inverter Current L1", "A", "current", "measurement", "mdi:sine-wave", "grid.l1.inverter_current"},
-	{"load_power_l1", "Load Power L1", "W", "power", "measurement", "mdi:flash", "grid.l1.load_power"},
-	{"load_current_l1", "Load Current L1", "A", "current", "measurement", "mdi:flash", "grid.l1.load_current"},
-	{"load_apparent_power_l1", "Load Apparent Power L1", "VA", "apparent_power", "measurement", "mdi:flash", "grid.l1.load_apparent_power"},
-	{"load_ratio_l1", "Load Ratio L1", "%", "", "measurement", "mdi:gauge", "grid.l1.load_ratio"},
+
+	// Load L1
+	{"load_power_l1", "Load Power L1", "W", "power", "measurement", "mdi:flash", "load.l1.power"},
+	{"load_current_l1", "Load Current L1", "A", "current", "measurement", "mdi:flash", "load.l1.current"},
+	{"load_apparent_power_l1", "Load Apparent Power L1", "VA", "apparent_power", "measurement", "mdi:flash", "load.l1.apparent_power"},
+	{"load_ratio_l1", "Load Ratio L1", "%", "", "measurement", "mdi:gauge", "load.l1.ratio"},
 
 	// Grid L2
 	{"grid_voltage_l2", "Grid Voltage L2", "V", "voltage", "measurement", "mdi:transmission-tower", "grid.l2.grid_voltage"},
 	{"grid_current_l2", "Grid Current L2", "A", "current", "measurement", "mdi:transmission-tower", "grid.l2.grid_current"},
 	{"inverter_voltage_l2", "Inverter Voltage L2", "V", "voltage", "measurement", "mdi:sine-wave", "grid.l2.inverter_voltage"},
 	{"inverter_current_l2", "Inverter Current L2", "A", "current", "measurement", "mdi:sine-wave", "grid.l2.inverter_current"},
-	{"load_power_l2", "Load Power L2", "W", "power", "measurement", "mdi:flash", "grid.l2.load_power"},
-	{"load_current_l2", "Load Current L2", "A", "current", "measurement", "mdi:flash", "grid.l2.load_current"},
-	{"load_apparent_power_l2", "Load Apparent Power L2", "VA", "apparent_power", "measurement", "mdi:flash", "grid.l2.load_apparent_power"},
-	{"load_ratio_l2", "Load Ratio L2", "%", "", "measurement", "mdi:gauge", "grid.l2.load_ratio"},
+
+	// Load L2
+	{"load_power_l2", "Load Power L2", "W", "power", "measurement", "mdi:flash", "load.l2.power"},
+	{"load_current_l2", "Load Current L2", "A", "current", "measurement", "mdi:flash", "load.l2.current"},
+	{"load_apparent_power_l2", "Load Apparent Power L2", "VA", "apparent_power", "measurement", "mdi:flash", "load.l2.apparent_power"},
+	{"load_ratio_l2", "Load Ratio L2", "%", "", "measurement", "mdi:gauge", "load.l2.ratio"},
 
 	// System state
 	{"inverter_state", "Inverter State", "", "", "", "mdi:state-machine", "inverter.machine_state_name"},
@@ -130,20 +136,24 @@ var unitSensors = []sensorDef{
 	{"grid_current_l1", "Grid Current L1", "A", "current", "measurement", "mdi:transmission-tower", "grid.l1.grid_current"},
 	{"inverter_voltage_l1", "Inverter Voltage L1", "V", "voltage", "measurement", "mdi:sine-wave", "grid.l1.inverter_voltage"},
 	{"inverter_current_l1", "Inverter Current L1", "A", "current", "measurement", "mdi:sine-wave", "grid.l1.inverter_current"},
-	{"load_power_l1", "Load Power L1", "W", "power", "measurement", "mdi:flash", "grid.l1.load_power"},
-	{"load_current_l1", "Load Current L1", "A", "current", "measurement", "mdi:flash", "grid.l1.load_current"},
-	{"load_apparent_power_l1", "Load Apparent Power L1", "VA", "apparent_power", "measurement", "mdi:flash", "grid.l1.load_apparent_power"},
-	{"load_ratio_l1", "Load Ratio L1", "%", "", "measurement", "mdi:gauge", "grid.l1.load_ratio"},
+
+	// Load L1
+	{"load_power_l1", "Load Power L1", "W", "power", "measurement", "mdi:flash", "load.l1.power"},
+	{"load_current_l1", "Load Current L1", "A", "current", "measurement", "mdi:flash", "load.l1.current"},
+	{"load_apparent_power_l1", "Load Apparent Power L1", "VA", "apparent_power", "measurement", "mdi:flash", "load.l1.apparent_power"},
+	{"load_ratio_l1", "Load Ratio L1", "%", "", "measurement", "mdi:gauge", "load.l1.ratio"},
 
 	// Grid L2
 	{"grid_voltage_l2", "Grid Voltage L2", "V", "voltage", "measurement", "mdi:transmission-tower", "grid.l2.grid_voltage"},
 	{"grid_current_l2", "Grid Current L2", "A", "current", "measurement", "mdi:transmission-tower", "grid.l2.grid_current"},
 	{"inverter_voltage_l2", "Inverter Voltage L2", "V", "voltage", "measurement", "mdi:sine-wave", "grid.l2.inverter_voltage"},
 	{"inverter_current_l2", "Inverter Current L2", "A", "current", "measurement", "mdi:sine-wave", "grid.l2.inverter_current"},
-	{"load_power_l2", "Load Power L2", "W", "power", "measurement", "mdi:flash", "grid.l2.load_power"},
-	{"load_current_l2", "Load Current L2", "A", "current", "measurement", "mdi:flash", "grid.l2.load_current"},
-	{"load_apparent_power_l2", "Load Apparent Power L2", "VA", "apparent_power", "measurement", "mdi:flash", "grid.l2.load_apparent_power"},
-	{"load_ratio_l2", "Load Ratio L2", "%", "", "measurement", "mdi:gauge", "grid.l2.load_ratio"},
+
+	// Load L2
+	{"load_power_l2", "Load Power L2", "W", "power", "measurement", "mdi:flash", "load.l2.power"},
+	{"load_current_l2", "Load Current L2", "A", "current", "measurement", "mdi:flash", "load.l2.current"},
+	{"load_apparent_power_l2", "Load Apparent Power L2", "VA", "apparent_power", "measurement", "mdi:flash", "load.l2.apparent_power"},
+	{"load_ratio_l2", "Load Ratio L2", "%", "", "measurement", "mdi:gauge", "load.l2.ratio"},
 
 	// Inverter (per-unit diagnostics)
 	{"inverter_state", "Inverter State", "", "", "", "mdi:state-machine", "inverter.machine_state_name"},

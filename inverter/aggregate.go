@@ -49,6 +49,7 @@ func aggregateBattery(units []UnitSnapshot) BatteryData {
 		b.ControllerTemp = math.Max(b.ControllerTemp, u.Battery.ControllerTemp)
 		b.BatteryTemp = math.Max(b.BatteryTemp, u.Battery.BatteryTemp)
 		b.TotalChargePower += u.Battery.TotalChargePower
+		b.SignedPower += u.Battery.SignedPower
 		b.FaultAlarmBits |= u.Battery.FaultAlarmBits
 		b.BMSVoltage += u.Battery.BMSVoltage
 		b.BMSCurrent += u.Battery.BMSCurrent
@@ -113,6 +114,9 @@ func aggregateLoad(units []UnitSnapshot) LoadData {
 	}
 	l.PowerFactor /= n // average
 	l.DCVoltage /= n   // average
+	l.L1 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L1 })
+	l.L2 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L2 })
+	l.L3 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L3 })
 	return l
 }
 
@@ -122,31 +126,40 @@ func aggregateGrid(units []UnitSnapshot) GridData {
 	for _, u := range units {
 		g.Frequency += u.Grid.Frequency
 		g.MainsChargeCurr += u.Grid.MainsChargeCurr
+		g.TotalPower += u.Grid.TotalPower
 	}
 	g.Frequency /= n
-	g.L1 = aggregatePhase(units, func(u UnitSnapshot) PhaseData { return u.Grid.L1 })
-	g.L2 = aggregatePhase(units, func(u UnitSnapshot) PhaseData { return u.Grid.L2 })
-	g.L3 = aggregatePhase(units, func(u UnitSnapshot) PhaseData { return u.Grid.L3 })
+	g.L1 = aggregateGridPhase(units, func(u UnitSnapshot) GridPhaseData { return u.Grid.L1 })
+	g.L2 = aggregateGridPhase(units, func(u UnitSnapshot) GridPhaseData { return u.Grid.L2 })
+	g.L3 = aggregateGridPhase(units, func(u UnitSnapshot) GridPhaseData { return u.Grid.L3 })
 	return g
 }
 
-func aggregatePhase(units []UnitSnapshot, get func(UnitSnapshot) PhaseData) PhaseData {
+func aggregateGridPhase(units []UnitSnapshot, get func(UnitSnapshot) GridPhaseData) GridPhaseData {
 	n := float64(len(units))
-	var p PhaseData
+	var p GridPhaseData
 	for _, u := range units {
 		ph := get(u)
 		p.GridVoltage += ph.GridVoltage
 		p.GridCurrent += ph.GridCurrent
 		p.InverterVoltage += ph.InverterVoltage
 		p.InverterCurrent += ph.InverterCurrent
-		p.LoadCurrent += ph.LoadCurrent
-		p.LoadPower += ph.LoadPower
-		p.LoadApparentPower += ph.LoadApparentPower
-		p.LoadRatio += ph.LoadRatio
 	}
-	// Voltages: average. Currents/power/ratio: sum.
+	// Voltages: average. Currents: sum.
 	p.GridVoltage /= n
 	p.InverterVoltage /= n
+	return p
+}
+
+func aggregateLoadPhase(units []UnitSnapshot, get func(UnitSnapshot) LoadPhaseData) LoadPhaseData {
+	var p LoadPhaseData
+	for _, u := range units {
+		ph := get(u)
+		p.Current += ph.Current
+		p.Power += ph.Power
+		p.ApparentPower += ph.ApparentPower
+		p.Ratio += ph.Ratio
+	}
 	return p
 }
 
