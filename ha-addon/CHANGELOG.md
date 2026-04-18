@@ -2,10 +2,6 @@
 
 ## 1.1.5
 
-- Dashboard theme refresh: Home Assistant Material You palette (HA blue primary, tonal dark surfaces)
-- Navigation moved from left drawer to fixed top bar so it stays visible on mobile and is not occluded by the HA sidebar panel
-- Merged Inverter card into Units card: bus voltage, DC-DC/DC-AC temp and machine state are now shown per unit, since they differ across inverters in a parallel system
-- Light / dark theme support: follows OS `prefers-color-scheme` by default, with a top-bar toggle whose choice persists in localStorage
 - Load power factor is now computed from real / apparent power (the 0x021A register reads 0 on ASP hardware); aggregate PF is sum(P)/sum(S) rather than an average across units
 - Per-inverter MPPT labels: `mppt1_label` / `mppt2_label` in each `[[inverter]]` block override the dashboard's default "MPPT 1" / "MPPT 2", and rewrite the per-unit MQTT entity display names (e.g. "Roof East Voltage" instead of "PV1 Voltage"). Entity unique_ids are unchanged so existing HA entities survive the rename.
 
