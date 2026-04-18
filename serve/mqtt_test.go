@@ -91,6 +91,40 @@ func TestSanitizeSerial(t *testing.T) {
 	assert.Equal(t, "unknown", sanitizeSerial(""))
 }
 
+func TestMPPTRename(t *testing.T) {
+	p := &MQTTPublisher{
+		mpptLabels: map[string][2]string{
+			"10.0.0.1": {"Roof East", "Roof West"},
+			"10.0.0.2": {"", "Garage"}, // only MPPT 2 configured
+		},
+	}
+
+	tests := []struct {
+		name     string
+		host     string
+		key      string
+		input    string
+		expected string
+	}{
+		{"pv1 rename", "10.0.0.1", "pv1_voltage", "PV1 Voltage", "Roof East Voltage"},
+		{"pv2 rename", "10.0.0.1", "pv2_power", "PV2 Power", "Roof West Power"},
+		{"partial: mppt1 blank falls through", "10.0.0.2", "pv1_voltage", "PV1 Voltage", "PV1 Voltage"},
+		{"partial: mppt2 set renames", "10.0.0.2", "pv2_current", "PV2 Current", "Garage Current"},
+		{"unknown host passes through", "10.9.9.9", "pv1_power", "PV1 Power", "PV1 Power"},
+		{"non-pv sensor untouched", "10.0.0.1", "battery_soc", "Battery SOC", "Battery SOC"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, tc.expected, p.mpptRename(tc.host, tc.key, tc.input))
+		})
+	}
+
+	// Nil labels map: pass-through.
+	empty := &MQTTPublisher{}
+	assert.Equal(t, "PV1 Voltage", empty.mpptRename("10.0.0.1", "pv1_voltage", "PV1 Voltage"))
+}
+
 func TestStatePayloadMatchesSnapshot(t *testing.T) {
 	snap := &inverter.Snapshot{
 		Battery: inverter.BatteryData{SOC: 85, Voltage: 53.2},
