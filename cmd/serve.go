@@ -53,6 +53,14 @@ func runServe(_ *cobra.Command, _ []string) error {
 	// Create hub and web server immediately so the UI is available during startup
 	hub := serve.NewHub(nil, pollInterval, settingsRefresh)
 	webServer := serve.NewWebServer(hub, nil)
+
+	mpptLabels := make(map[string][2]string, len(cfg.Inverters))
+	for _, inv := range cfg.Inverters {
+		if inv.MPPT1Label != "" || inv.MPPT2Label != "" {
+			mpptLabels[inv.Host] = [2]string{inv.MPPT1Label, inv.MPPT2Label}
+		}
+	}
+	webServer.SetMPPTLabels(mpptLabels)
 	srv := &http.Server{
 		Addr:    fmt.Sprintf(":%d", cfg.Server.WebPort),
 		Handler: webServer.Handler(),
@@ -127,7 +135,7 @@ func runServe(_ *cobra.Command, _ []string) error {
 
 	// Start MQTT if configured
 	if cfg.MQTT != nil {
-		pub, mqttErr := serve.NewMQTTPublisher(cfg.MQTT, hub, units)
+		pub, mqttErr := serve.NewMQTTPublisher(cfg.MQTT, hub, units, mpptLabels)
 		if mqttErr != nil {
 			return fmt.Errorf("mqtt: %w", mqttErr)
 		}

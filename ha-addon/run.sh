@@ -19,6 +19,8 @@ for inverter in $(bashio::config 'inverters|keys'); do
     PORT=$(bashio::config "inverters[${inverter}].port")
     SLAVE_ID=$(bashio::config "inverters[${inverter}].slave_id")
     SERIAL=$(bashio::config "inverters[${inverter}].serial")
+    MPPT1_LABEL=$(bashio::config "inverters[${inverter}].mppt1_label")
+    MPPT2_LABEL=$(bashio::config "inverters[${inverter}].mppt2_label")
 
     cat >> "${CONFIG}" <<EOF
 
@@ -29,6 +31,12 @@ slave_id = ${SLAVE_ID}
 EOF
     if [ "${SERIAL}" -gt 0 ] 2>/dev/null; then
         echo "serial = ${SERIAL}" >> "${CONFIG}"
+    fi
+    if [ -n "${MPPT1_LABEL}" ] && [ "${MPPT1_LABEL}" != "null" ]; then
+        echo "mppt1_label = \"${MPPT1_LABEL}\"" >> "${CONFIG}"
+    fi
+    if [ -n "${MPPT2_LABEL}" ] && [ "${MPPT2_LABEL}" != "null" ]; then
+        echo "mppt2_label = \"${MPPT2_LABEL}\"" >> "${CONFIG}"
     fi
 done
 

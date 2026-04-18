@@ -25,12 +25,12 @@
         <div class="space small"></div>
         <div class="grid no-space">
             <div class="s6">
-                <p class="small-text no-margin secondary-text">MPPT 1</p>
+                <p class="small-text no-margin secondary-text">{{$.MPPT .Host 1}}</p>
                 <h6 class="no-margin {{vc $.Changed (printf "unit-pv1-w-%s" .Host)}}">{{printf "%.0f" .PV.PV1Power}} <span class="small-text">W</span></h6>
                 <p class="small-text no-margin {{vc $.Changed (printf "unit-pv1-vi-%s" .Host)}}">{{printf "%.1f" .PV.PV1Voltage}} V &middot; {{printf "%.1f" .PV.PV1Current}} A</p>
             </div>
             <div class="s6">
-                <p class="small-text no-margin secondary-text">MPPT 2</p>
+                <p class="small-text no-margin secondary-text">{{$.MPPT .Host 2}}</p>
                 <h6 class="no-margin {{vc $.Changed (printf "unit-pv2-w-%s" .Host)}}">{{printf "%.0f" .PV.PV2Power}} <span class="small-text">W</span></h6>
                 <p class="small-text no-margin {{vc $.Changed (printf "unit-pv2-vi-%s" .Host)}}">{{printf "%.1f" .PV.PV2Voltage}} V &middot; {{printf "%.1f" .PV.PV2Current}} A</p>
             </div>

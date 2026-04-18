@@ -187,14 +187,17 @@ var unitSensors = []sensorDef{
 
 // MQTTPublisher publishes snapshots to an MQTT broker with HA auto-discovery.
 type MQTTPublisher struct {
-	client    mqtt.Client
-	prefix    string
-	hub       *Hub
-	unitInfos []inverter.UnitInfo
+	client     mqtt.Client
+	prefix     string
+	hub        *Hub
+	unitInfos  []inverter.UnitInfo
+	mpptLabels map[string][2]string // host -> [mppt1, mppt2] display labels
 }
 
 // NewMQTTPublisher creates and connects an MQTT publisher.
-func NewMQTTPublisher(cfg *MQTTConfig, hub *Hub, unitInfos []inverter.UnitInfo) (*MQTTPublisher, error) {
+// mpptLabels is optional; when present, per-unit PV1/PV2 entity names are rewritten
+// to use the configured labels (e.g. "Roof East Voltage" instead of "PV1 Voltage").
+func NewMQTTPublisher(cfg *MQTTConfig, hub *Hub, unitInfos []inverter.UnitInfo, mpptLabels map[string][2]string) (*MQTTPublisher, error) {
 	opts := mqtt.NewClientOptions().
 		AddBroker(cfg.Broker).
 		SetClientID(cfg.ClientID).
@@ -213,9 +216,10 @@ func NewMQTTPublisher(cfg *MQTTConfig, hub *Hub, unitInfos []inverter.UnitInfo) 
 	opts.SetWill(availTopic, "offline", 1, true)
 
 	pub := &MQTTPublisher{
-		prefix:    cfg.TopicPrefix,
-		hub:       hub,
-		unitInfos: unitInfos,
+		prefix:     cfg.TopicPrefix,
+		hub:        hub,
+		unitInfos:  unitInfos,
+		mpptLabels: mpptLabels,
 	}
 
 	opts.SetOnConnectHandler(func(c mqtt.Client) {
@@ -334,7 +338,7 @@ func (p *MQTTPublisher) publishUnitDiscovery(info inverter.UnitInfo) {
 		configTopic := fmt.Sprintf("%s/sensor/%s/%s/config", p.prefix, deviceID, s.Key)
 
 		payload := map[string]any{
-			"name":               s.Name,
+			"name":               p.mpptRename(info.Host, s.Key, s.Name),
 			"unique_id":          fmt.Sprintf("%s_%s", deviceID, s.Key),
 			"state_topic":        stateTopic,
 			"value_template":     fmt.Sprintf("{{ value_json.%s }}", s.ValuePath),
@@ -502,6 +506,23 @@ func (p *MQTTPublisher) publishControlState() {
 		topic := fmt.Sprintf("%s/select/%s/%s/state", p.prefix, deviceID, sel.Key)
 		p.client.Publish(topic, 0, true, sel.StateFunc(settings))
 	}
+}
+
+// mpptRename rewrites the display name for pv1_*/pv2_* sensors using the
+// configured MPPT label for this host. Entity keys and unique_ids are left
+// untouched so existing HA entities survive a config change.
+func (p *MQTTPublisher) mpptRename(host, key, name string) string {
+	labels, ok := p.mpptLabels[host]
+	if !ok {
+		return name
+	}
+	switch {
+	case strings.HasPrefix(key, "pv1_") && labels[0] != "":
+		return strings.Replace(name, "PV1", labels[0], 1)
+	case strings.HasPrefix(key, "pv2_") && labels[1] != "":
+		return strings.Replace(name, "PV2", labels[1], 1)
+	}
+	return name
 }
 
 // sanitizeSerial replaces characters not safe for MQTT topics.

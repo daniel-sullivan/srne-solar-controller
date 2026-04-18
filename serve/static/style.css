@@ -8,11 +8,18 @@ body.dark {
     --on-primary-container: #e1f5fe;
     --secondary: #ff9800;
     --on-secondary: #000000;
+    --secondary-container: #5d3a00;
+    --on-secondary-container: #ffe0b2;
+    --tertiary: #ff9800;
+    --on-tertiary: #000000;
+    --tertiary-container: #5d3a00;
+    --on-tertiary-container: #ffe0b2;
     --background: #111111;
     --on-background: #e1e1e1;
     --surface: #111111;
     --surface-dim: #0b0b0b;
     --surface-bright: #2a2a2a;
+    --surface-variant: #1c1c1c;
     --surface-container-lowest: #0b0b0b;
     --surface-container-low: #161616;
     --surface-container: #1c1c1c;
@@ -22,6 +29,10 @@ body.dark {
     --on-surface-variant: #a0a0a0;
     --outline: #3a3a3a;
     --outline-variant: #2a2a2a;
+    --error: #f44336;
+    --on-error: #ffffff;
+    --error-container: #7f1d1d;
+    --on-error-container: #ffdad6;
 }
 
 body.light {
@@ -31,9 +42,16 @@ body.light {
     --on-primary-container: #01579b;
     --secondary: #ff9800;
     --on-secondary: #000000;
+    --secondary-container: #ffe0b2;
+    --on-secondary-container: #5d3a00;
+    --tertiary: #ff9800;
+    --on-tertiary: #000000;
+    --tertiary-container: #ffe0b2;
+    --on-tertiary-container: #5d3a00;
     --background: #fafafa;
     --on-background: #212121;
     --surface: #fafafa;
+    --surface-variant: #f0f0f0;
     --surface-container-lowest: #ffffff;
     --surface-container-low: #f5f5f5;
     --surface-container: #ffffff;
@@ -43,6 +61,10 @@ body.light {
     --on-surface-variant: #5f6368;
     --outline: #bdbdbd;
     --outline-variant: #e0e0e0;
+    --error: #d32f2f;
+    --on-error: #ffffff;
+    --error-container: #ffdad6;
+    --on-error-container: #7f1d1d;
 }
 
 /* Top app bar — always visible so the HA mobile sidebar can't occlude it. */
@@ -73,19 +95,73 @@ header.top-bar .top-bar-title h6 {
     white-space: nowrap;
 }
 
+/* Material 3 primary tabs — underline-style, fills header height */
 header.top-bar .top-bar-tabs {
+    display: flex;
+    align-self: stretch;
     flex: 1;
     min-width: 0;
     overflow-x: auto;
     scrollbar-width: none;
+    justify-content: center;
 }
 
 header.top-bar .top-bar-tabs::-webkit-scrollbar {
     display: none;
 }
 
-header.top-bar .top-bar-tabs a {
+header.top-bar .top-bar-tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
     flex-shrink: 0;
+    padding: 0 1.25rem;
+    color: var(--on-surface-variant);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    transition: color 0.15s, background-color 0.15s;
+}
+
+header.top-bar .top-bar-tab::after {
+    content: "";
+    position: absolute;
+    left: 1rem;
+    right: 1rem;
+    bottom: 0;
+    height: 3px;
+    border-radius: 3px 3px 0 0;
+    background-color: transparent;
+    transition: background-color 0.15s;
+}
+
+header.top-bar .top-bar-tab:hover {
+    background-color: color-mix(in srgb, var(--on-surface) 6%, transparent);
+    color: var(--on-surface);
+}
+
+header.top-bar .top-bar-tab.active {
+    color: var(--primary);
+}
+
+header.top-bar .top-bar-tab.active::after {
+    background-color: var(--primary);
+}
+
+header.top-bar .top-bar-tab i {
+    font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+    header.top-bar .top-bar-tab {
+        padding: 0 0.9rem;
+    }
+    header.top-bar .top-bar-tab span {
+        display: none;
+    }
 }
 
 /* Hide the title text on very narrow screens; icon remains. */
@@ -127,8 +203,11 @@ article {
     opacity: 0.7;
 }
 
+/* Small uppercase label. Overrides Beer CSS's .secondary-text utility
+   (which would otherwise paint these labels with the --secondary accent). */
 .secondary-text {
-    opacity: 0.5;
+    color: var(--on-surface-variant);
+    opacity: 0.8;
     text-transform: uppercase;
     font-size: 0.7rem;
     letter-spacing: 0.05em;
@@ -158,6 +237,22 @@ h2 > .large-text {
 /* Settings: align inputs to bottom of each grid row */
 article .grid {
     align-items: end;
+}
+
+/* Settings: input fields inside cards need contrast against the card surface */
+article .field.border {
+    background-color: var(--surface-container-lowest);
+    border: 1px solid var(--outline);
+    border-radius: 0.5rem;
+}
+
+article .field.border:hover {
+    border-color: var(--on-surface-variant);
+}
+
+article .field.border:focus-within {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 1px var(--primary);
 }
 
 /* Settings: unit suffix inside input fields */

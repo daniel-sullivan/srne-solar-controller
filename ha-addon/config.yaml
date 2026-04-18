@@ -30,6 +30,8 @@ options:
       port: 8899
       slave_id: 1
       serial: 0
+      mppt1_label: ""
+      mppt2_label: ""
   poll_interval: 10
 schema:
   inverters:
@@ -37,6 +39,8 @@ schema:
       port: port
       slave_id: "int(1,247)"
       serial: "int(0,)?"
+      mppt1_label: str?
+      mppt2_label: str?
   poll_interval: "int(1,3600)"
   mqtt_topic_prefix: str?
   mqtt_broker: url?

@@ -207,12 +207,15 @@ func readInverterAndLoadData(session *modbus.Session, load *LoadData, grid *Grid
 	readLoadPhase(session, &load.L3,
 		register.AddrLoadCurrentL3, register.AddrLoadPowerL3,
 		register.AddrLoadApparentPowerL3, register.AddrLoadRatioL3)
-	load.PowerFactor = readSigned(session, register.AddrLoadPowerFactor, register.Mul001)
 	load.DCVoltage = readScaled(session, register.AddrDCLoadVoltage, register.Mul01)
 	load.DCCurrent = readScaled(session, register.AddrDCLoadCurrent, register.Mul001)
 	load.DCPower = readScaled(session, register.AddrDCLoadPower, nil)
 	load.TotalPower = load.L1.Power + load.L2.Power + load.L3.Power
 	load.TotalApparentPower = load.L1.ApparentPower + load.L2.ApparentPower + load.L3.ApparentPower
+	// 0x021A Load Power Factor register reads as 0 on ASP hardware — derive from P/S.
+	if load.TotalApparentPower > 0 {
+		load.PowerFactor = load.TotalPower / load.TotalApparentPower
+	}
 
 	return nil
 }

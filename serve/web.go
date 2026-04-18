@@ -22,9 +22,10 @@ var staticFS embed.FS
 
 // WebServer handles HTTP routes for the dashboard and API.
 type WebServer struct {
-	hub    *Hub
-	system *inverter.System
-	tmpl   *template.Template
+	hub        *Hub
+	system     *inverter.System
+	tmpl       *template.Template
+	mpptLabels map[string][2]string // host -> [mppt1, mppt2] display labels
 }
 
 // selectOption is a dropdown option for templates.
@@ -75,6 +76,12 @@ func (ws *WebServer) SetSystem(system *inverter.System) {
 	ws.system = system
 }
 
+// SetMPPTLabels registers per-inverter labels for MPPT 1 and MPPT 2, keyed by host.
+// An empty string in either slot falls back to the default "MPPT 1" / "MPPT 2".
+func (ws *WebServer) SetMPPTLabels(labels map[string][2]string) {
+	ws.mpptLabels = labels
+}
+
 // Handler returns the HTTP handler with all routes registered.
 func (ws *WebServer) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -106,6 +113,9 @@ func (ws *WebServer) Handler() http.Handler {
 }
 
 func (ws *WebServer) renderPage(w http.ResponseWriter, data pageData) {
+	if data.MPPTLabels == nil {
+		data.MPPTLabels = ws.mpptLabels
+	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := ws.tmpl.ExecuteTemplate(w, "layout.html", data); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

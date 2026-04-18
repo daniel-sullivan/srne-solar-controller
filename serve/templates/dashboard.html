@@ -8,14 +8,14 @@
     <div class="s12 m12 l6" sse-swap="battery" hx-swap="innerHTML">
         {{template "battery" $td}}
     </div>
+    <div class="s12 m12 l6" sse-swap="grid" hx-swap="innerHTML">
+        {{template "grid" $td}}
+    </div>
     <div class="s12 m12 l6" sse-swap="pv" hx-swap="innerHTML">
         {{template "pv" $td}}
     </div>
     <div class="s12 m12 l6" sse-swap="load" hx-swap="innerHTML">
         {{template "load" $td}}
-    </div>
-    <div class="s12 m12 l6" sse-swap="grid" hx-swap="innerHTML">
-        {{template "grid" $td}}
     </div>
     <div class="s12 m12 l12" sse-swap="units" hx-swap="innerHTML">
         {{template "units" $td}}

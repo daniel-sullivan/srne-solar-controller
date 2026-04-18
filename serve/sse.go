@@ -17,22 +17,36 @@ var partialNames = []string{"battery", "pv", "load", "grid", "units"}
 
 // pageData is the top-level data for full page renders (layout + content).
 type pageData struct {
-	Page     string
-	Snapshot *inverter.Snapshot
-	Settings *inverter.Settings
-	Faults   []register.FaultRecord
-	Changed  map[string]bool
+	Page       string
+	Snapshot   *inverter.Snapshot
+	Settings   *inverter.Settings
+	Faults     []register.FaultRecord
+	Changed    map[string]bool
+	MPPTLabels map[string][2]string
 }
 
 // TemplateData returns a templateData for use by dashboard partials.
 func (p pageData) TemplateData() templateData {
-	return templateData{Snapshot: p.Snapshot, Changed: p.Changed}
+	return templateData{Snapshot: p.Snapshot, Changed: p.Changed, MPPTLabels: p.MPPTLabels}
 }
 
 // templateData is passed to SSE partial templates.
 type templateData struct {
 	*inverter.Snapshot
-	Changed map[string]bool
+	Changed    map[string]bool
+	MPPTLabels map[string][2]string
+}
+
+// MPPT returns the configured label for the n-th MPPT input of the given host,
+// falling back to "MPPT <n>" when no override is configured.
+func (t templateData) MPPT(host string, n int) string {
+	if labels, ok := t.MPPTLabels[host]; ok {
+		idx := n - 1
+		if idx >= 0 && idx < len(labels) && labels[idx] != "" {
+			return labels[idx]
+		}
+	}
+	return fmt.Sprintf("MPPT %d", n)
 }
 
 // VC returns "value-changed" if the named key changed, empty string otherwise.
@@ -82,7 +96,7 @@ func (ws *WebServer) handleSSE(w http.ResponseWriter, r *http.Request) {
 			changed := diffValues(prev, cur)
 			prev = cur
 
-			data := templateData{Snapshot: snap, Changed: changed}
+			data := templateData{Snapshot: snap, Changed: changed, MPPTLabels: ws.mpptLabels}
 
 			// Emit HTML partial events for HTMX sse-swap
 			for _, name := range partialNames {

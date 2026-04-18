@@ -21,6 +21,10 @@ Add one entry per Solarman wifi dongle:
 - **port**: Solarman V5 port (default: 8899)
 - **slave_id**: MODBUS slave ID (default: 1, usually 1-2 for parallel setups)
 - **serial**: Dongle serial number (0 = auto-detect)
+- **mppt1_label** / **mppt2_label**: Optional friendly names for the two MPPT inputs
+  on this inverter (e.g. "Roof East", "Roof West"). Used as the display label on the
+  dashboard and as the per-unit MQTT entity name (e.g. "Roof East Voltage"). Leave
+  blank to keep the default "MPPT 1" / "MPPT 2".
 
 ### MQTT
 

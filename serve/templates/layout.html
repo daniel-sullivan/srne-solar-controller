@@ -30,16 +30,16 @@
             <i>solar_power</i>
             <h6 class="max">SRNE Solar</h6>
         </nav>
-        <nav class="tabs top-bar-tabs">
-            <a href="./" {{if eq .Page "dashboard"}}class="active"{{end}}>
+        <nav class="top-bar-tabs">
+            <a href="./" class="top-bar-tab{{if eq .Page "dashboard"}} active{{end}}">
                 <i>dashboard</i>
                 <span>Dashboard</span>
             </a>
-            <a href="settings" {{if eq .Page "settings"}}class="active"{{end}}>
+            <a href="settings" class="top-bar-tab{{if eq .Page "settings"}} active{{end}}">
                 <i>settings</i>
                 <span>Settings</span>
             </a>
-            <a href="faults" {{if eq .Page "faults"}}class="active"{{end}}>
+            <a href="faults" class="top-bar-tab{{if eq .Page "faults"}} active{{end}}">
                 <i>warning</i>
                 <span>Faults</span>
             </a>

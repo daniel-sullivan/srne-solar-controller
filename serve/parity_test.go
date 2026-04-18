@@ -84,7 +84,7 @@ func TestMQTTRESTSensorParity(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
+	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos, nil)
 	require.NoError(t, err)
 	go pub.Run(ctx)
 
@@ -181,7 +181,7 @@ func TestMQTTRESTControlParity(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
+	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos, nil)
 	require.NoError(t, err)
 	go pub.Run(ctx)
 	time.Sleep(300 * time.Millisecond)
@@ -332,7 +332,7 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 		ClientID:    "test-publisher",
 		TopicPrefix: "homeassistant",
 	}
-	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos)
+	pub, err := NewMQTTPublisher(mqttCfg, hub, unitInfos, nil)
 	require.NoError(t, err)
 	go pub.Run(ctx)
 	time.Sleep(300 * time.Millisecond)

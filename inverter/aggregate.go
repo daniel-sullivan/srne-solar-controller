@@ -107,13 +107,15 @@ func aggregateLoad(units []UnitSnapshot) LoadData {
 	for _, u := range units {
 		l.TotalPower += u.Load.TotalPower
 		l.TotalApparentPower += u.Load.TotalApparentPower
-		l.PowerFactor += u.Load.PowerFactor
 		l.DCVoltage += u.Load.DCVoltage
 		l.DCCurrent += u.Load.DCCurrent
 		l.DCPower += u.Load.DCPower
 	}
-	l.PowerFactor /= n // average
-	l.DCVoltage /= n   // average
+	l.DCVoltage /= n // average
+	// Aggregate power factor = sum(P) / sum(S); averaging per-unit PFs would be wrong.
+	if l.TotalApparentPower > 0 {
+		l.PowerFactor = l.TotalPower / l.TotalApparentPower
+	}
 	l.L1 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L1 })
 	l.L2 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L2 })
 	l.L3 = aggregateLoadPhase(units, func(u UnitSnapshot) LoadPhaseData { return u.Load.L3 })

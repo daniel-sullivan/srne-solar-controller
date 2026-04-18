@@ -24,10 +24,12 @@ type ServerConfig struct {
 
 // InverterConfig identifies a single Solarman dongle.
 type InverterConfig struct {
-	Host    string `toml:"host"`
-	Port    int    `toml:"port"`
-	Serial  uint32 `toml:"serial"`
-	SlaveID uint8  `toml:"slave_id"`
+	Host       string `toml:"host"`
+	Port       int    `toml:"port"`
+	Serial     uint32 `toml:"serial"`
+	SlaveID    uint8  `toml:"slave_id"`
+	MPPT1Label string `toml:"mppt1_label"`
+	MPPT2Label string `toml:"mppt2_label"`
 }
 
 // MQTTConfig controls the MQTT publisher. Optional — nil when omitted.
