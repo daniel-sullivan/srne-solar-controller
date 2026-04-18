@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.1.5
 
 - Dashboard theme refresh: Home Assistant Material You palette (HA blue primary, tonal dark surfaces)
 - Navigation moved from left drawer to fixed top bar so it stays visible on mobile and is not occluded by the HA sidebar panel
