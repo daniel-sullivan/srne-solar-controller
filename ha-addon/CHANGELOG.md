@@ -7,6 +7,13 @@
 - Merged Inverter card into Units card: bus voltage, DC-DC/DC-AC temp and machine state are now shown per unit, since they differ across inverters in a parallel system
 - Light / dark theme support: follows OS `prefers-color-scheme` by default, with a top-bar toggle whose choice persists in localStorage
 
+## 1.1.4
+
+- Dashboard theme refresh: Home Assistant Material You palette (HA blue primary, tonal dark surfaces)
+- Navigation moved from left drawer to fixed top bar, stays visible on mobile and is not occluded by the HA sidebar
+- Merged Inverter card into Units card: bus voltage, DC-DC/DC-AC temp and machine state shown per unit
+- Light / dark theme support: follows OS `prefers-color-scheme` by default, top-bar toggle persists in `localStorage`
+
 ## 1.1.2
 
 - Separate per-phase load data from grid data in snapshot structs
