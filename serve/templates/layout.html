@@ -6,32 +6,73 @@
     <title>SRNE Solar Dashboard</title>
     <link href="https://cdn.jsdelivr.net/npm/beercss@4.0.19/dist/cdn/beer.min.css" rel="stylesheet">
     <script type="module" src="https://cdn.jsdelivr.net/npm/beercss@4.0.19/dist/cdn/beer.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/material-dynamic-colors@1.1.4/dist/cdn/material-dynamic-colors.min.js"></script>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <script src="https://unpkg.com/htmx-ext-sse@2.2.4/sse.js"></script>
     <link rel="stylesheet" href="static/style.css">
+    <script>
+        // Apply theme before first paint to avoid a flash.
+        // Priority: explicit user pick (localStorage) > OS preference.
+        (function () {
+            var stored = localStorage.getItem("srne-theme");
+            var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+            var theme = stored || (prefersDark ? "dark" : "light");
+            document.documentElement.dataset.theme = theme;
+        })();
+    </script>
 </head>
-<body class="dark" hx-ext="sse" sse-connect="api/snapshot/stream">
-    <nav class="left m l">
-        <header>
-            <nav>
-                <i class="large">solar_power</i>
-                <h6>SRNE Solar</h6>
-            </nav>
-        </header>
-        <a href="./" {{if eq .Page "dashboard"}}class="active"{{end}}>
-            <i>dashboard</i>
-            <span>Dashboard</span>
-        </a>
-        <a href="settings" {{if eq .Page "settings"}}class="active"{{end}}>
-            <i>settings</i>
-            <span>Settings</span>
-        </a>
-        <a href="faults" {{if eq .Page "faults"}}class="active"{{end}}>
-            <i>warning</i>
-            <span>Faults</span>
-        </a>
-    </nav>
+<body hx-ext="sse" sse-connect="api/snapshot/stream">
+    <script>
+        // Mirror the theme from <html data-theme> to <body class> (Beer CSS reads body.dark / body.light).
+        document.body.classList.add(document.documentElement.dataset.theme);
+    </script>
+    <header class="fixed top-bar">
+        <nav class="top-bar-title">
+            <i>solar_power</i>
+            <h6 class="max">SRNE Solar</h6>
+        </nav>
+        <nav class="tabs top-bar-tabs">
+            <a href="./" {{if eq .Page "dashboard"}}class="active"{{end}}>
+                <i>dashboard</i>
+                <span>Dashboard</span>
+            </a>
+            <a href="settings" {{if eq .Page "settings"}}class="active"{{end}}>
+                <i>settings</i>
+                <span>Settings</span>
+            </a>
+            <a href="faults" {{if eq .Page "faults"}}class="active"{{end}}>
+                <i>warning</i>
+                <span>Faults</span>
+            </a>
+        </nav>
+        <button id="theme-toggle" class="circle transparent" title="Toggle theme" aria-label="Toggle theme">
+            <i id="theme-toggle-icon">dark_mode</i>
+        </button>
+    </header>
+
+    <script>
+        (function () {
+            var btn = document.getElementById("theme-toggle");
+            var icon = document.getElementById("theme-toggle-icon");
+            function render(theme) {
+                document.body.classList.remove("dark", "light");
+                document.body.classList.add(theme);
+                document.documentElement.dataset.theme = theme;
+                icon.textContent = theme === "dark" ? "light_mode" : "dark_mode";
+            }
+            render(document.documentElement.dataset.theme);
+            btn.addEventListener("click", function () {
+                var next = document.body.classList.contains("dark") ? "light" : "dark";
+                localStorage.setItem("srne-theme", next);
+                render(next);
+            });
+            // Follow OS changes when the user hasn't made an explicit choice.
+            var mq = window.matchMedia("(prefers-color-scheme: dark)");
+            mq.addEventListener("change", function (e) {
+                if (localStorage.getItem("srne-theme")) return;
+                render(e.matches ? "dark" : "light");
+            });
+        })();
+    </script>
 
     <main class="responsive max">
         {{template "content" .}}

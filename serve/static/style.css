@@ -1,7 +1,105 @@
+/* Home Assistant Material You palette overrides.
+   Beer CSS theme tokens retuned to match HA's native look so the dashboard
+   feels at home embedded as a panel. */
+body.dark {
+    --primary: #03a9f4;
+    --on-primary: #ffffff;
+    --primary-container: #01579b;
+    --on-primary-container: #e1f5fe;
+    --secondary: #ff9800;
+    --on-secondary: #000000;
+    --background: #111111;
+    --on-background: #e1e1e1;
+    --surface: #111111;
+    --surface-dim: #0b0b0b;
+    --surface-bright: #2a2a2a;
+    --surface-container-lowest: #0b0b0b;
+    --surface-container-low: #161616;
+    --surface-container: #1c1c1c;
+    --surface-container-high: #242424;
+    --surface-container-highest: #2a2a2a;
+    --on-surface: #e1e1e1;
+    --on-surface-variant: #a0a0a0;
+    --outline: #3a3a3a;
+    --outline-variant: #2a2a2a;
+}
+
+body.light {
+    --primary: #03a9f4;
+    --on-primary: #ffffff;
+    --primary-container: #b3e5fc;
+    --on-primary-container: #01579b;
+    --secondary: #ff9800;
+    --on-secondary: #000000;
+    --background: #fafafa;
+    --on-background: #212121;
+    --surface: #fafafa;
+    --surface-container-lowest: #ffffff;
+    --surface-container-low: #f5f5f5;
+    --surface-container: #ffffff;
+    --surface-container-high: #eeeeee;
+    --surface-container-highest: #e0e0e0;
+    --on-surface: #212121;
+    --on-surface-variant: #5f6368;
+    --outline: #bdbdbd;
+    --outline-variant: #e0e0e0;
+}
+
+/* Top app bar — always visible so the HA mobile sidebar can't occlude it. */
+header.top-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 0 1rem;
+    height: 3.5rem;
+    background-color: var(--surface-container);
+    border-bottom: 1px solid var(--outline-variant);
+    z-index: 10;
+}
+
+header.top-bar .top-bar-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
+header.top-bar .top-bar-title i {
+    color: var(--primary);
+}
+
+header.top-bar .top-bar-title h6 {
+    margin: 0;
+    white-space: nowrap;
+}
+
+header.top-bar .top-bar-tabs {
+    flex: 1;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+}
+
+header.top-bar .top-bar-tabs::-webkit-scrollbar {
+    display: none;
+}
+
+header.top-bar .top-bar-tabs a {
+    flex-shrink: 0;
+}
+
+/* Hide the title text on very narrow screens; icon remains. */
+@media (max-width: 480px) {
+    header.top-bar .top-bar-title h6 {
+        display: none;
+    }
+}
+
 /* Dashboard layout */
 
 main.responsive {
     padding: 1.5rem;
+    padding-top: 5rem;
 }
 
 article {

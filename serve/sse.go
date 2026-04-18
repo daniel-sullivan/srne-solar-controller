@@ -13,7 +13,7 @@ import (
 )
 
 // partialNames lists the template names emitted as SSE events.
-var partialNames = []string{"battery", "pv", "load", "grid", "inverter", "units"}
+var partialNames = []string{"battery", "pv", "load", "grid", "units"}
 
 // pageData is the top-level data for full page renders (layout + content).
 type pageData struct {
@@ -145,15 +145,16 @@ func snapshotValues(s *inverter.Snapshot) map[string]string {
 		"inv-l1-v":    fmt.Sprintf("%.1f", s.Grid.L1.InverterVoltage),
 		"inv-l2-v":    fmt.Sprintf("%.1f", s.Grid.L2.InverterVoltage),
 		"inv-l3-v":    fmt.Sprintf("%.1f", s.Grid.L3.InverterVoltage),
-		// Inverter
+		// Aggregated inverter state (still referenced by grid card)
 		"inv-state": s.Inverter.MachineStateName,
-		"inv-bus":   fmt.Sprintf("%.1f", s.Inverter.BusVoltage),
 		"inv-freq":  fmt.Sprintf("%.2f", s.Inverter.Frequency),
-		"inv-ta":    fmt.Sprintf("%.1f", s.Inverter.HeatsinkTempA),
-		"inv-tb":    fmt.Sprintf("%.1f", s.Inverter.HeatsinkTempB),
 	}
 	// Per-unit values
 	for _, u := range s.Units {
+		v[fmt.Sprintf("unit-state-%s", u.Host)] = u.Inverter.MachineStateName
+		v[fmt.Sprintf("unit-bus-%s", u.Host)] = fmt.Sprintf("%.1f", u.Inverter.BusVoltage)
+		v[fmt.Sprintf("unit-ta-%s", u.Host)] = fmt.Sprintf("%.1f", u.Inverter.HeatsinkTempA)
+		v[fmt.Sprintf("unit-tb-%s", u.Host)] = fmt.Sprintf("%.1f", u.Inverter.HeatsinkTempB)
 		v[fmt.Sprintf("unit-pv-%s", u.Host)] = fmt.Sprintf("%.0f", u.PV.TotalPower)
 		v[fmt.Sprintf("unit-load-%s", u.Host)] = fmt.Sprintf("%.0f", u.Load.TotalPower)
 		v[fmt.Sprintf("unit-pv1-w-%s", u.Host)] = fmt.Sprintf("%.0f", u.PV.PV1Power)
