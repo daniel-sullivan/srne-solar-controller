@@ -33,9 +33,23 @@ jobs:
       - name: Install Claude Code
         run: npm install -g @anthropic-ai/claude-code
 
+      - name: Promote Unreleased section
+        id: promote
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if grep -q '^## Unreleased$' ha-addon/CHANGELOG.md; then
+            # Rename the existing "## Unreleased" header to the new version so any
+            # bullets already accumulated during development become this release's notes.
+            sed -i "s/^## Unreleased$/## ${VERSION}/" ha-addon/CHANGELOG.md
+            echo "promoted=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "promoted=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Generate changelog
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PROMOTED: ${{ steps.promote.outputs.promoted }}
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           PREV_TAG=$(git tag --sort=-version:refname | grep '^v' | sed -n '2p')
@@ -48,14 +62,20 @@ jobs:
             echo "" > /tmp/diffstat.txt
           fi
 
+          if [ "$PROMOTED" = "true" ]; then
+            INSTRUCTION="A '## ${VERSION}' section already exists (promoted from an Unreleased section with hand-written notes). Review the commits and only APPEND bullets for changes not already covered. Do not duplicate existing bullets or reword them."
+          else
+            INSTRUCTION="Add a new '## ${VERSION}' section immediately after the '# Changelog' header."
+          fi
+
           cat <<EOF | claude -p --model claude-sonnet-4-6 --allowedTools Read,Edit || echo "::warning::Failed to generate changelog, skipping"
-          Update ha-addon/CHANGELOG.md with a new ## ${VERSION} section after the '# Changelog' header.
+          Update ha-addon/CHANGELOG.md. ${INSTRUCTION}
           Read /tmp/commits.txt for the commits and /tmp/diffstat.txt for changed files.
           Read ha-addon/CHANGELOG.md first to match the existing style.
           Guidelines:
           - Concise, user-facing bullet points
           - Note breaking changes with **Breaking:**
-          - Do not modify any other sections
+          - Do not modify any other version sections
           EOF
 
       - name: Extract release notes
