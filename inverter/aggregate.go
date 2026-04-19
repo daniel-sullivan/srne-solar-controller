@@ -41,7 +41,11 @@ func aggregate(units []UnitSnapshot) Snapshot {
 
 func aggregateBattery(units []UnitSnapshot) BatteryData {
 	n := float64(len(units))
-	var b BatteryData
+	b := BatteryData{
+		ControllerTemp: units[0].Battery.ControllerTemp,
+		BatteryTemp:    units[0].Battery.BatteryTemp,
+		BMSTemperature: units[0].Battery.BMSTemperature,
+	}
 	for _, u := range units {
 		b.SOC += u.Battery.SOC
 		b.Voltage += u.Battery.Voltage
@@ -167,7 +171,12 @@ func aggregateLoadPhase(units []UnitSnapshot, get func(UnitSnapshot) LoadPhaseDa
 
 func aggregateInverter(units []UnitSnapshot) InverterData {
 	n := float64(len(units))
-	var inv InverterData
+	inv := InverterData{
+		HeatsinkTempA: units[0].Inverter.HeatsinkTempA,
+		HeatsinkTempB: units[0].Inverter.HeatsinkTempB,
+		HeatsinkTempC: units[0].Inverter.HeatsinkTempC,
+		HeatsinkTempD: units[0].Inverter.HeatsinkTempD,
+	}
 	// Use the worst machine state (highest value = more severe)
 	for _, u := range units {
 		if u.Inverter.MachineState > inv.MachineState {

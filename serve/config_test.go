@@ -67,6 +67,19 @@ topic_prefix = "ha"
 	assert.Equal(t, "ha", cfg.MQTT.TopicPrefix)
 }
 
+func TestLoadConfig_MockDriver(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+driver = "mock"
+`)
+	cfg, err := LoadConfig(path)
+	require.NoError(t, err)
+
+	assert.Len(t, cfg.Inverters, 1)
+	assert.Equal(t, "mock", cfg.Inverters[0].Driver)
+	assert.Equal(t, "mock-1", cfg.Inverters[0].Host)
+}
+
 func TestLoadConfig_NoInverters(t *testing.T) {
 	path := writeConfig(t, `
 [server]
@@ -95,6 +108,16 @@ client_id = "test"
 `)
 	_, err := LoadConfig(path)
 	assert.ErrorContains(t, err, "mqtt.broker is required")
+}
+
+func TestLoadConfig_InvalidDriver(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+driver = "bogus"
+host = "x"
+`)
+	_, err := LoadConfig(path)
+	assert.ErrorContains(t, err, "invalid driver")
 }
 
 func TestLoadConfig_InvalidDuration(t *testing.T) {

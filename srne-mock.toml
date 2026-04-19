@@ -1,0 +1,16 @@
+[server]
+poll_interval = "1s"
+web_port = 8090
+settings_refresh = "30s"
+
+[[inverter]]
+driver = "mock"
+host = "mock-1"
+mppt1_label = "Roof East"
+mppt2_label = "Roof West"
+
+[[inverter]]
+driver = "mock"
+host = "mock-2"
+mppt1_label = "Garage East"
+mppt2_label = "Garage West"

@@ -19,6 +19,10 @@ description = "Build all packages"
 run = "go run . serve --config srne.toml"
 description = "Start the service against local inverters"
 
+[tasks."serve:mock"]
+run = "go run . serve --config srne-mock.toml"
+description = "Start the service against mock inverters on port 8090"
+
 [tasks.check]
 depends = ["build", "test", "lint"]
 description = "Run build, test, and lint"

@@ -338,8 +338,18 @@ func (c *Client) sendAndReceive(modbusFrame []byte) ([]byte, error) {
 			advance += len(f)
 		}
 		consumed += advance
+		total, consumed = compactFrameBuffer(buf, total, consumed)
 	}
 	return nil, fmt.Errorf("no MODBUS response within timeout")
+}
+
+func compactFrameBuffer(buf []byte, total, consumed int) (int, int) {
+	if consumed > len(buf)/2 {
+		copy(buf, buf[consumed:total])
+		total -= consumed
+		consumed = 0
+	}
+	return total, consumed
 }
 
 // wrapFrame builds a Solarman V5 request frame wrapping an inner MODBUS RTU frame.
@@ -466,12 +476,7 @@ func (c *Client) ScanFrames(callback func(modbusFrame []byte) bool) error {
 			advance += len(f)
 		}
 		consumed += advance
-
-		if consumed > len(buf)/2 {
-			copy(buf, buf[consumed:total])
-			total -= consumed
-			consumed = 0
-		}
+		total, consumed = compactFrameBuffer(buf, total, consumed)
 	}
 }
 

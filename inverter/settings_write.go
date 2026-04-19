@@ -36,6 +36,14 @@ func encodeInt(value string) (uint16, error) {
 	return uint16(i), nil
 }
 
+func encodeSignedInt(value string) (uint16, error) {
+	i, err := strconv.ParseInt(value, 10, 16)
+	if err != nil {
+		return 0, err
+	}
+	return uint16(int16(i)), nil
+}
+
 func encodeBool(value string) (uint16, error) {
 	switch value {
 	case "1", "true", "on":
@@ -123,10 +131,10 @@ var settingFields = map[string]settingField{
 	"cutoff_discharge_soc": {Addr: register.AddrCutoffSOC, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }, PackedMask: 0x00FF, PackedShift: 0},
 
 	// Temperature limits
-	"charge_max_temp":    {Addr: register.AddrChargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charge_min_temp":    {Addr: register.AddrChargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_max_temp": {Addr: register.AddrDischargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"discharge_min_temp": {Addr: register.AddrDischargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charge_max_temp":    {Addr: register.AddrChargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeSignedInt(v) }},
+	"charge_min_temp":    {Addr: register.AddrChargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeSignedInt(v) }},
+	"discharge_max_temp": {Addr: register.AddrDischargeMaxTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeSignedInt(v) }},
+	"discharge_min_temp": {Addr: register.AddrDischargeMinTemp, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeSignedInt(v) }},
 
 	// Timed charge periods
 	"charge_start_time_1": {Addr: register.AddrChargeStartTime1, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeTime(v) }},

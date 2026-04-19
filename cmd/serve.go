@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/daniel-sullivan/srne-solar-controller/interfaces/mock"
 	"github.com/daniel-sullivan/srne-solar-controller/interfaces/solarman"
 	"github.com/daniel-sullivan/srne-solar-controller/inverter"
 	"github.com/daniel-sullivan/srne-solar-controller/modbus"
@@ -85,25 +86,11 @@ func runServe(_ *cobra.Command, _ []string) error {
 	// Connect to inverters (this may take time)
 	clients := make([]modbus.Client, len(cfg.Inverters))
 	for i, inv := range cfg.Inverters {
-		slaveID := inv.SlaveID
-		if slaveID == 0 {
-			slaveID = 1
+		client, err := buildServeClient(i, inv)
+		if err != nil {
+			return err
 		}
-		client := solarman.NewClient(inv.Host, inv.Port, inv.Serial, slaveID)
-		client.Debug = debug
-		if err := client.Connect(); err != nil {
-			return fmt.Errorf("inverter %s: %w", inv.Host, err)
-		}
-		defer func() { _ = client.Close() }()
-
-		if inv.SlaveID == 0 {
-			found, probeErr := client.ProbeSlaveID(10)
-			if probeErr != nil {
-				return fmt.Errorf("inverter %s: %w", inv.Host, probeErr)
-			}
-			slog.Info("detected slave ID", "host", inv.Host, "slave_id", found)
-		}
-
+		defer closeServeClient(client)
 		clients[i] = client
 	}
 
@@ -147,4 +134,58 @@ func runServe(_ *cobra.Command, _ []string) error {
 	<-ctx.Done()
 	slog.Info("shutdown complete")
 	return nil
+}
+
+func buildServeClient(index int, inv serve.InverterConfig) (modbus.Client, error) {
+	switch inv.Driver {
+	case "mock":
+		sim := mock.NewSim()
+		if len(inv.Host) > 0 {
+			// Host is already used as the display label in the UI; keep the mock state varied by index.
+		}
+		if err := sim.Connect(); err != nil {
+			return nil, fmt.Errorf("mock inverter %s: %w", inv.Host, err)
+		}
+		sim.Start(1 * time.Second)
+		sim.SetParallelMode(1)
+		if index%2 == 0 {
+			sim.SetSOC(56)
+			sim.SetPV(2600, 1800)
+			sim.SetLoad(780)
+			sim.SetGridVoltage(107)
+		} else {
+			sim.SetSOC(56)
+			sim.SetPV(2100, 1700)
+			sim.SetLoad(720)
+			sim.SetGridVoltage(108)
+		}
+		return sim, nil
+	case "solarman":
+		slaveID := inv.SlaveID
+		if slaveID == 0 {
+			slaveID = 1
+		}
+		client := solarman.NewClient(inv.Host, inv.Port, inv.Serial, slaveID)
+		client.Debug = debug
+		if err := client.Connect(); err != nil {
+			return nil, fmt.Errorf("inverter %s: %w", inv.Host, err)
+		}
+		if inv.SlaveID == 0 {
+			found, probeErr := client.ProbeSlaveID(10)
+			if probeErr != nil {
+				return nil, fmt.Errorf("inverter %s: %w", inv.Host, probeErr)
+			}
+			slog.Info("detected slave ID", "host", inv.Host, "slave_id", found)
+		}
+		return client, nil
+	default:
+		return nil, fmt.Errorf("inverter %s: unsupported driver %q", inv.Host, inv.Driver)
+	}
+}
+
+func closeServeClient(client modbus.Client) {
+	if sim, ok := client.(*mock.Sim); ok {
+		sim.Stop()
+	}
+	_ = client.Close()
 }

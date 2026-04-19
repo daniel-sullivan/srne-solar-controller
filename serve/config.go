@@ -24,6 +24,7 @@ type ServerConfig struct {
 
 // InverterConfig identifies a single Solarman dongle.
 type InverterConfig struct {
+	Driver     string `toml:"driver"`
 	Host       string `toml:"host"`
 	Port       int    `toml:"port"`
 	Serial     uint32 `toml:"serial"`
@@ -79,11 +80,28 @@ func LoadConfig(path string) (*Config, error) {
 	}
 
 	for i := range cfg.Inverters {
-		if cfg.Inverters[i].Host == "" {
-			return nil, fmt.Errorf("config: inverter[%d] missing host", i)
+		if cfg.Inverters[i].Driver == "" {
+			cfg.Inverters[i].Driver = "solarman"
 		}
-		if cfg.Inverters[i].Port == 0 {
-			cfg.Inverters[i].Port = defaultSolarmanPort
+
+		switch cfg.Inverters[i].Driver {
+		case "solarman":
+			if cfg.Inverters[i].Host == "" {
+				return nil, fmt.Errorf("config: inverter[%d] missing host", i)
+			}
+			if cfg.Inverters[i].Port == 0 {
+				cfg.Inverters[i].Port = defaultSolarmanPort
+			}
+		case "mock":
+			if cfg.Inverters[i].Host == "" {
+				cfg.Inverters[i].Host = fmt.Sprintf("mock-%d", i+1)
+			}
+		default:
+			return nil, fmt.Errorf("config: inverter[%d] invalid driver %q", i, cfg.Inverters[i].Driver)
+		}
+
+		if cfg.Inverters[i].Driver == "solarman" && cfg.Inverters[i].Host == "" {
+			return nil, fmt.Errorf("config: inverter[%d] missing host", i)
 		}
 	}
 
