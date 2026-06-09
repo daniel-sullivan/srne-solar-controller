@@ -1,9 +1,13 @@
 # Changelog
 
-## Unreleased
+## 1.1.6
 
 - Mains Charge Current is now exposed as a writable Home Assistant `number` entity (`number.mains_charge_current`, register `0xE205`, 0–200 A range). Previously this AC charge-current limit could only be set from the web dashboard; it can now be driven from HA automations (e.g. raising/lowering the limit to track PV surplus) and is published with live state via MQTT discovery.
 - Fix a data race in the fault-history endpoints: `/faults` and `/api/faults` read fault records directly from the inverter session, concurrently with the polling loop, which could corrupt the shared session and issue overlapping MODBUS requests to the dongle. Fault reads are now serialized through the hub run loop like polls and settings writes.
+- Fix temperature limit settings (`charge_min_temp`, `charge_max_temp`, `discharge_min_temp`, `discharge_max_temp`) not accepting negative values — they were encoded as unsigned, so e.g. `-10` would write an incorrect register value.
+- Fix parallel-system temperature aggregation: heatsink and battery temperatures now seed from the first unit rather than 0, so the reported maximum is correct when any unit reads a temperature below the previous seed value.
+- Add `driver = "mock"` support in `[[inverter]]` config blocks to run a live simulator without real hardware; a sample `srne-mock.toml` is included.
+- Fix unbounded memory growth in long-running deployments: the Solarman client now compacts its receive buffer after each transaction.
 
 ## 1.1.5
 
