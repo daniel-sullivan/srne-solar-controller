@@ -140,9 +140,7 @@ func buildServeClient(index int, inv serve.InverterConfig) (modbus.Client, error
 	switch inv.Driver {
 	case "mock":
 		sim := mock.NewSim()
-		if len(inv.Host) > 0 {
-			// Host is already used as the display label in the UI; keep the mock state varied by index.
-		}
+		// Host is already used as the display label in the UI; mock state is varied by index below.
 		if err := sim.Connect(); err != nil {
 			return nil, fmt.Errorf("mock inverter %s: %w", inv.Host, err)
 		}

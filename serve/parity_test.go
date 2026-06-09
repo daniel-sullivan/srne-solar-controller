@@ -407,6 +407,26 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 		assert.Equal(t, "90", string(mqttState))
 	})
 
+	// --- Set the mains charge current number via MQTT and verify state echo ---
+	// This mirrors the Home Assistant automation path: write number.mains_charge_current
+	// → register 0xE205 → state republished for the entity.
+	t.Run("mains_charge_current_mqtt_round_trip", func(t *testing.T) {
+		cmdTopic := "homeassistant/number/srne_system/mains_charge_current/set"
+		require.NoError(t, broker.Publish(cmdTopic, []byte("20"), false, 0))
+
+		time.Sleep(500 * time.Millisecond)
+
+		stateTopic := "homeassistant/number/srne_system/mains_charge_current/state"
+		mqttState, ok := store.get(stateTopic)
+		require.True(t, ok, "missing MQTT state after mains charge current command")
+		assert.Equal(t, "20", string(mqttState))
+
+		// Confirm it landed in the settings the same way the dashboard reads it back.
+		settings := hub.Settings()
+		require.NotNil(t, settings)
+		assert.Equal(t, 20.0, settings.Inverter.MainsChargeCurrentLim)
+	})
+
 	// --- Set a select control via MQTT and verify REST ---
 	t.Run("select_mqtt_to_rest", func(t *testing.T) {
 		cmdTopic := "homeassistant/select/srne_system/output_priority/set"

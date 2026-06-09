@@ -99,6 +99,13 @@ var controlNumbers = []controlNumber{
 			return fmt.Sprintf("%.0f", s.Battery.SOCSwitchToBattery)
 		},
 	},
+	{
+		Key: "mains_charge_current", Name: "Mains Charge Current", Icon: "mdi:transmission-tower-import",
+		Unit: "A", Field: "mains_charge_current_lim", Min: 0, Max: 200, Step: 1,
+		StateFunc: func(s *inverter.Settings) string {
+			return fmt.Sprintf("%.0f", s.Inverter.MainsChargeCurrentLim)
+		},
+	},
 }
 
 var controlSelects = []controlSelect{

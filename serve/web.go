@@ -149,7 +149,7 @@ func (ws *WebServer) handleFaults(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	faults, err := ws.system.ReadFaults(ctx)
+	faults, err := ws.hub.ReadFaults(ctx)
 	if err != nil {
 		slog.Warn("fault history read failed", "error", err)
 		faults = nil
@@ -254,7 +254,7 @@ func (ws *WebServer) handleAPIFaults(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 30*time.Second)
 	defer cancel()
 
-	faults, err := ws.system.ReadFaults(ctx)
+	faults, err := ws.hub.ReadFaults(ctx)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		_ = json.NewEncoder(w).Encode(map[string]string{"error": err.Error()})
