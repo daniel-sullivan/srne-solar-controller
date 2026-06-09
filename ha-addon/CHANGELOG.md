@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Mains Charge Current is now exposed as a writable Home Assistant `number` entity (`number.mains_charge_current`, register `0xE205`, 0–200 A range). Previously this AC charge-current limit could only be set from the web dashboard; it can now be driven from HA automations (e.g. raising/lowering the limit to track PV surplus) and is published with live state via MQTT discovery.
+- Fix a data race in the fault-history endpoints: `/faults` and `/api/faults` read fault records directly from the inverter session, concurrently with the polling loop, which could corrupt the shared session and issue overlapping MODBUS requests to the dongle. Fault reads are now serialized through the hub run loop like polls and settings writes.
+
 ## 1.1.5
 
 - Load power factor is now computed from real / apparent power (the 0x021A register reads 0 on ASP hardware); aggregate PF is sum(P)/sum(S) rather than an average across units

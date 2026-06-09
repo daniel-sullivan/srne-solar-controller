@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/daniel-sullivan/srne-solar-controller/inverter"
+	"github.com/daniel-sullivan/srne-solar-controller/register"
 )
 
 // Subscriber receives snapshots from the hub.
@@ -23,6 +24,17 @@ type writeRequest struct {
 	result chan error
 }
 
+// faultsRequest is sent to the hub's run loop to serialize fault-history reads
+// with polling, so they never issue overlapping MODBUS requests to the dongle.
+type faultsRequest struct {
+	result chan faultsResult
+}
+
+type faultsResult struct {
+	faults []register.FaultRecord
+	err    error
+}
+
 // Hub polls the inverter system and fans out snapshots to subscribers.
 // All MODBUS communication is serialized through the hub's run loop.
 type Hub struct {
@@ -35,7 +47,8 @@ type Hub struct {
 	settings    *inverter.Settings
 	subscribers map[*Subscriber]struct{}
 
-	writeCh chan writeRequest
+	writeCh  chan writeRequest
+	faultsCh chan faultsRequest
 
 	// Virtual switch state: saved charger priority for charge_from_mains toggle
 	prevChargerPriority     string
@@ -51,6 +64,7 @@ func NewHub(system *inverter.System, pollInterval, settingsRefresh time.Duration
 		settingsRefresh: settingsRefresh,
 		subscribers:     make(map[*Subscriber]struct{}),
 		writeCh:         make(chan writeRequest, 8),
+		faultsCh:        make(chan faultsRequest, 4),
 	}
 }
 
@@ -153,6 +167,24 @@ func (h *Hub) WriteSetting(ctx context.Context, field, value string) error {
 	}
 }
 
+// ReadFaults reads fault history through the hub's run loop, serialized with
+// polling so it never issues overlapping MODBUS requests to the dongle.
+// Blocks until the read completes or ctx expires.
+func (h *Hub) ReadFaults(ctx context.Context) ([]register.FaultRecord, error) {
+	req := faultsRequest{result: make(chan faultsResult, 1)}
+	select {
+	case h.faultsCh <- req:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	select {
+	case res := <-req.result:
+		return res.faults, res.err
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+}
+
 // Run starts the polling loop. Blocks until ctx is cancelled.
 func (h *Hub) Run(ctx context.Context) {
 	pollTicker := time.NewTicker(h.pollInterval)
@@ -175,8 +207,24 @@ func (h *Hub) Run(ctx context.Context) {
 			h.refreshSettings(ctx)
 		case req := <-h.writeCh:
 			h.handleWrite(ctx, req)
+		case req := <-h.faultsCh:
+			h.handleReadFaults(ctx, req)
 		}
 	}
+}
+
+func (h *Hub) handleReadFaults(ctx context.Context, req faultsRequest) {
+	h.mu.RLock()
+	sys := h.system
+	h.mu.RUnlock()
+
+	if sys == nil {
+		req.result <- faultsResult{err: fmt.Errorf("system not ready")}
+		return
+	}
+
+	faults, err := sys.ReadFaults(ctx)
+	req.result <- faultsResult{faults: faults, err: err}
 }
 
 func (h *Hub) handleWrite(ctx context.Context, req writeRequest) {
