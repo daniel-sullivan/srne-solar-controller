@@ -382,8 +382,9 @@ func OutputPriority(value uint16) string {
 
 // ChargerPriority returns a human-readable string.
 func ChargerPriority(value uint16) string {
+	// Values per the V2.04 protocol register table (0xE20F ChgSourcePriority).
 	p := map[uint16]string{
-		0: "CSO (PV Preferred)", 1: "CUB (Mains Preferred)", 2: "SNU (Hybrid)", 3: "OSO (PV Only)",
+		0: "PV Priority", 1: "AC Priority", 2: "Hybrid", 3: "PV Only",
 	}
 	if s, ok := p[value]; ok {
 		return s

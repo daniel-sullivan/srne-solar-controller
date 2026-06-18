@@ -50,10 +50,15 @@ type Hub struct {
 	writeCh  chan writeRequest
 	faultsCh chan faultsRequest
 
-	// Virtual switch state: saved charger priority for charge_from_mains toggle
-	prevChargerPriority     string
-	prevChargerPriorityInit bool
+	// Virtual switch state: last non-zero AC charge current limit (0xE205) so the
+	// charge_from_mains toggle can restore it when switched back ON.
+	prevMainsChargeCurrent     string
+	prevMainsChargeCurrentInit bool
 }
+
+// defaultMainsChargeCurrent is the V2.04 factory default for 0xE205 (60 A), used
+// when charge_from_mains is switched ON without a previously-seen non-zero limit.
+const defaultMainsChargeCurrent = "60"
 
 // NewHub creates a hub that polls the system at the given interval.
 // The system may be nil initially — call SetSystem before Run.
@@ -111,38 +116,40 @@ func (h *Hub) Settings() *inverter.Settings {
 	return h.settings
 }
 
-// SaveChargerPriority saves the current charger priority for the charge_from_mains toggle.
-// If the current value is already CUB (1), it is not saved (would be a no-op restore).
-func (h *Hub) SaveChargerPriority(current uint16) {
+// SaveMainsChargeCurrent remembers the current AC charge current limit for the
+// charge_from_mains toggle. A zero value is not saved (restoring zero would be a
+// no-op OFF), so the prior non-zero limit survives an OFF→ON cycle.
+func (h *Hub) SaveMainsChargeCurrent(current float64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if current != 1 {
-		h.prevChargerPriority = fmt.Sprintf("%d", current)
+	if current > 0 {
+		h.prevMainsChargeCurrent = fmt.Sprintf("%.0f", current)
 	}
-	h.prevChargerPriorityInit = true
+	h.prevMainsChargeCurrentInit = true
 }
 
-// RestoreChargerPriority returns the saved charger priority value.
-// Defaults to "0" (CSO/PV Preferred) if no value was saved.
-func (h *Hub) RestoreChargerPriority() string {
+// RestoreMainsChargeCurrent returns the saved AC charge current limit, falling
+// back to the factory default if no non-zero value has been seen.
+func (h *Hub) RestoreMainsChargeCurrent() string {
 	h.mu.RLock()
 	defer h.mu.RUnlock()
-	if h.prevChargerPriority == "" {
-		return "0"
+	if h.prevMainsChargeCurrent == "" {
+		return defaultMainsChargeCurrent
 	}
-	return h.prevChargerPriority
+	return h.prevMainsChargeCurrent
 }
 
-// InitChargerPriority initializes the saved charger priority from settings on first call.
-func (h *Hub) InitChargerPriority(settings *inverter.Settings) {
+// InitMainsChargeCurrent seeds the saved limit from settings on first call, so a
+// restart with grid charging already enabled remembers the configured limit.
+func (h *Hub) InitMainsChargeCurrent(settings *inverter.Settings) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	if h.prevChargerPriorityInit || settings == nil {
+	if h.prevMainsChargeCurrentInit || settings == nil {
 		return
 	}
-	h.prevChargerPriorityInit = true
-	if settings.Inverter.ChargerPriority != 1 {
-		h.prevChargerPriority = fmt.Sprintf("%d", settings.Inverter.ChargerPriority)
+	h.prevMainsChargeCurrentInit = true
+	if settings.Inverter.MainsChargeCurrentLim > 0 {
+		h.prevMainsChargeCurrent = fmt.Sprintf("%.0f", settings.Inverter.MainsChargeCurrentLim)
 	}
 }
 

@@ -368,9 +368,16 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &entities))
 		require.Len(t, entities.Switches, 1)
 		assert.Equal(t, "ON", entities.Switches[0].State)
+
+		// ON restores the prior non-zero AC charge current limit (the sim seeds
+		// 0xE205 = 25 A), not a hardcoded value.
+		settings := hub.Settings()
+		require.NotNil(t, settings)
+		assert.Equal(t, 25.0, settings.Inverter.MainsChargeCurrentLim,
+			"ON should restore the prior AC charge current limit")
 	})
 
-	// --- Toggle charge_from_mains switch OFF → should restore previous priority ---
+	// --- Toggle charge_from_mains switch OFF → should zero the AC charge current ---
 	t.Run("switch_restore", func(t *testing.T) {
 		cmdTopic := "homeassistant/switch/srne_system/charge_from_mains/set"
 		require.NoError(t, broker.Publish(cmdTopic, []byte("OFF"), false, 0))
@@ -382,11 +389,11 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, "OFF", string(mqttState))
 
-		// Charger priority should have been restored (not CUB)
+		// OFF zeroes the AC charge current limit (0xE205) to stop grid charging.
 		settings := hub.Settings()
 		require.NotNil(t, settings)
-		assert.NotEqual(t, uint16(1), settings.Inverter.ChargerPriority,
-			"charger priority should not be CUB after switch OFF")
+		assert.Equal(t, 0.0, settings.Inverter.MainsChargeCurrentLim,
+			"mains charge current should be 0 after switch OFF")
 	})
 
 	// --- Set a number control via REST and verify MQTT ---

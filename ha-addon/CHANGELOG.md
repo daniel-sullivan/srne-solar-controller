@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.7
+
+- The **Charge from Mains** switch is now backed by the AC charge current limit (`0xE205`) instead of the charger-priority register (`0xE20F`). Turning it OFF writes `0 A`, which deterministically stops grid charging regardless of priority/output mode; turning it ON restores the last non-zero limit (or 60 A if none has been seen). This fixes the switch reverting from ON→OFF by itself on some systems: the old behaviour toggled a *priority* enum whose value is easily rewritten by the inverter's own logic or an external surplus controller (e.g. EVCC), so the next poll would read a value that no longer matched "on". The switch and the `Mains Charge Current` number entity now stay consistent — setting the number to 0 shows the switch OFF, and vice-versa.
+- Relabel the **Charger Priority** select options from the opaque `CSO`/`CUB`/`SNU`/`OSO` codes to plain language matching the V2.04 protocol table: `PV Priority` / `AC Priority` / `Hybrid` / `PV Only` (register values 0/1/2/3 unchanged). HA will re-discover the entity with the new option names.
+
 ## 1.1.6
 
 - Mains Charge Current is now exposed as a writable Home Assistant `number` entity (`number.mains_charge_current`, register `0xE205`, 0–200 A range). Previously this AC charge-current limit could only be set from the web dashboard; it can now be driven from HA automations (e.g. raising/lowering the limit to track PV surplus) and is published with live state via MQTT discovery.
