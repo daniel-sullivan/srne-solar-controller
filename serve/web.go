@@ -270,7 +270,7 @@ func (ws *WebServer) handleAPIEntities(w http.ResponseWriter, _ *http.Request) {
 	settings := ws.hub.Settings()
 
 	if settings != nil {
-		ws.hub.InitChargerPriority(settings)
+		ws.hub.InitMainsChargeCurrent(settings)
 	}
 
 	// Build sensor list with current values

@@ -491,7 +491,7 @@ func (p *MQTTPublisher) publishControlState() {
 		return
 	}
 
-	p.hub.InitChargerPriority(settings)
+	p.hub.InitMainsChargeCurrent(settings)
 	deviceID := "srne_system"
 
 	for _, sw := range controlSwitches {

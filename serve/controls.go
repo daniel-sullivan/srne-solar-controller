@@ -46,8 +46,13 @@ var controlSwitches = []controlSwitch{
 		Key:  "charge_from_mains",
 		Name: "Charge from Mains",
 		Icon: "mdi:transmission-tower-import",
+		// Backed by the AC charge current limit (0xE205): >0 A means grid charging
+		// is permitted, 0 A disables it. This is more robust than toggling the
+		// charger-priority enum (0xE20F) — 0 A deterministically stops grid charging
+		// regardless of priority/output mode and doesn't fight an external surplus
+		// controller (e.g. EVCC) that may rewrite the priority register.
 		StateFunc: func(s *inverter.Settings) string {
-			if s.Inverter.ChargerPriority == 1 {
+			if s.Inverter.MainsChargeCurrentLim > 0 {
 				return "ON"
 			}
 			return "OFF"
@@ -55,14 +60,14 @@ var controlSwitches = []controlSwitch{
 		CommandFunc: func(ctx context.Context, hub *Hub, payload string) error {
 			switch payload {
 			case "ON":
-				// Save current priority before switching to CUB
-				settings := hub.Settings()
-				if settings != nil {
-					hub.SaveChargerPriority(settings.Inverter.ChargerPriority)
-				}
-				return hub.WriteSetting(ctx, "charger_priority", "1")
+				// Restore the last non-zero AC charge current limit.
+				return hub.WriteSetting(ctx, "mains_charge_current_lim", hub.RestoreMainsChargeCurrent())
 			case "OFF":
-				return hub.WriteSetting(ctx, "charger_priority", hub.RestoreChargerPriority())
+				// Remember the current limit so ON can restore it, then zero it.
+				if settings := hub.Settings(); settings != nil {
+					hub.SaveMainsChargeCurrent(settings.Inverter.MainsChargeCurrentLim)
+				}
+				return hub.WriteSetting(ctx, "mains_charge_current_lim", "0")
 			default:
 				return fmt.Errorf("invalid switch payload: %q", payload)
 			}
@@ -112,14 +117,14 @@ var controlSelects = []controlSelect{
 	{
 		Key: "charger_priority", Name: "Charger Priority", Icon: "mdi:battery-charging",
 		Field:   "charger_priority",
-		Options: []string{"CSO", "CUB", "SNU", "OSO"},
+		Options: []string{"PV Priority", "AC Priority", "Hybrid", "PV Only"},
 		Values:  []string{"0", "1", "2", "3"},
 		StateFunc: func(s *inverter.Settings) string {
-			m := map[uint16]string{0: "CSO", 1: "CUB", 2: "SNU", 3: "OSO"}
+			m := map[uint16]string{0: "PV Priority", 1: "AC Priority", 2: "Hybrid", 3: "PV Only"}
 			if name, ok := m[s.Inverter.ChargerPriority]; ok {
 				return name
 			}
-			return "CSO"
+			return "PV Priority"
 		},
 	},
 	{

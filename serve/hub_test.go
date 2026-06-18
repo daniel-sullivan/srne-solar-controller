@@ -101,3 +101,42 @@ func TestHubUnsubscribe(t *testing.T) {
 		t.Fatal("expected done to be closed")
 	}
 }
+
+func TestHubMainsChargeCurrentSaveRestore(t *testing.T) {
+	t.Run("default when nothing seen", func(t *testing.T) {
+		h := NewHub(nil, time.Hour, time.Hour)
+		assert.Equal(t, defaultMainsChargeCurrent, h.RestoreMainsChargeCurrent())
+	})
+
+	t.Run("save then restore round-trip", func(t *testing.T) {
+		h := NewHub(nil, time.Hour, time.Hour)
+		h.SaveMainsChargeCurrent(40)
+		assert.Equal(t, "40", h.RestoreMainsChargeCurrent())
+	})
+
+	t.Run("zero is not saved over a prior non-zero value", func(t *testing.T) {
+		h := NewHub(nil, time.Hour, time.Hour)
+		h.SaveMainsChargeCurrent(40)
+		h.SaveMainsChargeCurrent(0) // e.g. a second OFF — must not clobber
+		assert.Equal(t, "40", h.RestoreMainsChargeCurrent())
+	})
+
+	t.Run("init seeds once from settings, falls back to default if zero", func(t *testing.T) {
+		h := NewHub(nil, time.Hour, time.Hour)
+		seeded := &inverter.Settings{}
+		seeded.Inverter.MainsChargeCurrentLim = 30
+		h.InitMainsChargeCurrent(seeded)
+		assert.Equal(t, "30", h.RestoreMainsChargeCurrent())
+
+		// Subsequent init is a no-op (does not overwrite the remembered value).
+		other := &inverter.Settings{}
+		other.Inverter.MainsChargeCurrentLim = 99
+		h.InitMainsChargeCurrent(other)
+		assert.Equal(t, "30", h.RestoreMainsChargeCurrent())
+
+		// A fresh hub seeded from a zero limit keeps the default fallback.
+		h2 := NewHub(nil, time.Hour, time.Hour)
+		h2.InitMainsChargeCurrent(&inverter.Settings{})
+		assert.Equal(t, defaultMainsChargeCurrent, h2.RestoreMainsChargeCurrent())
+	})
+}
