@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.8
+
+- Fix **Charger Priority** writes in parallel systems: the setting is now written only to the master unit instead of all units. Writing to non-master inverters in a parallel group is ignored by the hardware and could cause conflicts; the master propagates the mode to subordinate units automatically.
+
 ## 1.1.7
 
 - The **Charge from Mains** switch is now backed by the AC charge current limit (`0xE205`) instead of the charger-priority register (`0xE20F`). Turning it OFF writes `0 A`, which deterministically stops grid charging regardless of priority/output mode; turning it ON restores the last non-zero limit (or 60 A if none has been seen). This fixes the switch reverting from ON→OFF by itself on some systems: the old behaviour toggled a *priority* enum whose value is easily rewritten by the inverter's own logic or an external surplus controller (e.g. EVCC), so the next poll would read a value that no longer matched "on". The switch and the `Mains Charge Current` number entity now stay consistent — setting the number to 0 shows the switch OFF, and vice-versa.
