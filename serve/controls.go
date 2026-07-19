@@ -41,6 +41,15 @@ type controlSelect struct {
 	StateFunc func(*inverter.Settings) string
 }
 
+// controlDiagnostic defines a read-only Home Assistant diagnostic sensor sourced
+// from inverter settings (as opposed to the polled snapshot).
+type controlDiagnostic struct {
+	Key       string
+	Name      string
+	Icon      string
+	StateFunc func(*inverter.Settings) string
+}
+
 var controlSwitches = []controlSwitch{
 	{
 		Key:  "charge_from_mains",
@@ -138,6 +147,16 @@ var controlSelects = []controlSelect{
 				return name
 			}
 			return "SOL"
+		},
+	},
+}
+
+// controlDiagnostics are read-only diagnostic sensors published on the system device.
+var controlDiagnostics = []controlDiagnostic{
+	{
+		Key: "charge_source_selection", Name: "Charge Source Selection (0xE04D)", Icon: "mdi:battery-charging",
+		StateFunc: func(s *inverter.Settings) string {
+			return fmt.Sprintf("%d", s.Inverter.ChargeSourceSelection)
 		},
 	},
 }

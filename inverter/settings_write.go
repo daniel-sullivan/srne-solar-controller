@@ -17,6 +17,11 @@ type settingField struct {
 	// Only the bits selected by PackedMask are written; the rest are preserved.
 	PackedMask  uint16
 	PackedShift uint8
+	// MasterOnly writes the register to the parallel master (first unit) only and
+	// verifies the value took effect. Parallel slaves follow the master for these
+	// settings and reject writes to them, so writing to all units aborts on the
+	// slave's rejection even though the master accepted.
+	MasterOnly bool
 }
 
 // encode helpers
@@ -97,7 +102,7 @@ var settingFields = map[string]settingField{
 	"output_voltage":           {Addr: register.AddrOutputVoltage, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
 	"output_frequency":         {Addr: register.AddrOutputFrequency, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.01) }},
 	"output_priority":          {Addr: register.AddrOutputPriority, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
-	"charger_priority":         {Addr: register.AddrChargerPriority, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
+	"charger_priority":         {Addr: register.AddrChargerPriority, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }, MasterOnly: true},
 	"max_charge_current":       {Addr: register.AddrMaxChargeCurrent, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
 	"mains_charge_current_lim": {Addr: register.AddrMainsChargeCurrentLim, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
 	"max_line_current":         {Addr: register.AddrMaxLineCurrent, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeFloat(v, 0.1) }},
@@ -214,6 +219,9 @@ func (s *System) WriteSetting(ctx context.Context, field string, value string) e
 		raw = (current &^ sf.PackedMask) | ((raw << sf.PackedShift) & sf.PackedMask)
 	}
 
+	if sf.MasterOnly {
+		return s.WriteRegisterMasterVerified(ctx, sf.Addr, raw)
+	}
 	return s.WriteRegister(ctx, sf.Addr, raw)
 }
 
