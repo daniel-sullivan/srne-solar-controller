@@ -456,6 +456,22 @@ func (p *MQTTPublisher) publishControlDiscovery() {
 		data, _ := json.Marshal(payload)
 		p.client.Publish(configTopic, 1, true, data)
 	}
+
+	// Diagnostics (read-only sensors sourced from settings)
+	for _, diag := range controlDiagnostics {
+		configTopic := fmt.Sprintf("%s/sensor/%s/%s/config", p.prefix, deviceID, diag.Key)
+		payload := map[string]any{
+			"name":               diag.Name,
+			"unique_id":          fmt.Sprintf("%s_%s", deviceID, diag.Key),
+			"state_topic":        fmt.Sprintf("%s/sensor/%s/%s/state", p.prefix, deviceID, diag.Key),
+			"entity_category":    "diagnostic",
+			"availability_topic": availTopic,
+			"device":             device,
+			"icon":               diag.Icon,
+		}
+		data, _ := json.Marshal(payload)
+		p.client.Publish(configTopic, 1, true, data)
+	}
 }
 
 func (p *MQTTPublisher) subscribeControls(c mqtt.Client) {
@@ -505,6 +521,10 @@ func (p *MQTTPublisher) publishControlState() {
 	for _, sel := range controlSelects {
 		topic := fmt.Sprintf("%s/select/%s/%s/state", p.prefix, deviceID, sel.Key)
 		p.client.Publish(topic, 0, true, sel.StateFunc(settings))
+	}
+	for _, diag := range controlDiagnostics {
+		topic := fmt.Sprintf("%s/sensor/%s/%s/state", p.prefix, deviceID, diag.Key)
+		p.client.Publish(topic, 0, true, diag.StateFunc(settings))
 	}
 }
 

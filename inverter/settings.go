@@ -99,6 +99,7 @@ type InverterSettings struct {
 	// Charging
 	ChargerPriority       uint16  `json:"charger_priority"`
 	ChargerPriorityName   string  `json:"charger_priority_name"`
+	ChargeSourceSelection uint16  `json:"charge_source_selection"`  // 0xE04D (firmware V1.96+); read-only diagnostic
 	MaxChargeCurrent      float64 `json:"max_charge_current"`       // A
 	MainsChargeCurrentLim float64 `json:"mains_charge_current_lim"` // A
 
@@ -269,6 +270,7 @@ func readInverterSettings(s *modbus.Session, inv *InverterSettings) {
 
 	inv.ChargerPriority, _ = s.Lookup(register.AddrChargerPriority)
 	inv.ChargerPriorityName = register.ChargerPriority(inv.ChargerPriority)
+	inv.ChargeSourceSelection, _ = s.Lookup(register.AddrChargeSourceSelection)
 	inv.MaxChargeCurrent = readScaled(s, register.AddrMaxChargeCurrent, register.Mul01)
 	inv.MainsChargeCurrentLim = readScaled(s, register.AddrMainsChargeCurrentLim, register.Mul01)
 

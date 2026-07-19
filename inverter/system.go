@@ -188,6 +188,59 @@ func (s *System) WriteRegister(ctx context.Context, addr uint16, value uint16) e
 	return nil
 }
 
+// masterVerifyAttempts bounds how many times WriteRegisterMasterVerified writes
+// and re-reads a register before giving up.
+const masterVerifyAttempts = 3
+
+// masterVerifyRetryDelay spaces retries so a transient "cannot change while
+// running" rejection has a chance to clear (SRNE control writes settle slowly).
+const masterVerifyRetryDelay = 300 * time.Millisecond
+
+// WriteRegisterMasterVerified writes a register to the parallel master (the first
+// unit) only, then reads it back to confirm the value stuck, retrying on failure.
+// Master-owned settings (e.g. charger priority, 0xE20F) are rejected by slave units
+// and are read from the master by ReadSettings, so writing them to all units — and
+// aborting on a slave's rejection — fails even when the master accepted. Writing and
+// verifying only where the value lives avoids that and surfaces a clear error if the
+// inverter itself refuses or ignores the write.
+func (s *System) WriteRegisterMasterVerified(ctx context.Context, addr uint16, value uint16) error {
+	s.mu.RLock()
+	if len(s.units) == 0 {
+		s.mu.RUnlock()
+		return fmt.Errorf("no units")
+	}
+	master := s.units[0]
+	s.mu.RUnlock()
+
+	master.session.Ctx = ctx
+	var err error
+	for attempt := 1; attempt <= masterVerifyAttempts; attempt++ {
+		if attempt > 1 {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(masterVerifyRetryDelay):
+			}
+		}
+
+		if err = master.session.WriteSingleRegister(addr, value); err != nil {
+			err = fmt.Errorf("master %s: write 0x%04X: %w", master.info.Host, addr, err)
+			continue
+		}
+
+		var got []uint16
+		if got, err = master.session.ReadRegisters(addr, 1); err != nil {
+			err = fmt.Errorf("master %s: verify read 0x%04X: %w", master.info.Host, addr, err)
+			continue
+		}
+		if got[0] == value {
+			return nil
+		}
+		err = fmt.Errorf("master %s: write 0x%04X not applied: wrote %d, read %d (register locked or unsupported)", master.info.Host, addr, value, got[0])
+	}
+	return err
+}
+
 // ReadFaults reads fault history from the first unit.
 func (s *System) ReadFaults(ctx context.Context) ([]register.FaultRecord, error) {
 	s.mu.RLock()
