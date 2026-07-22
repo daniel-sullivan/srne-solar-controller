@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.9
+
+- Add a **Timed Charge (Grid)** switch (`switch.timed_charge_enable`, register `0xE02C`) so an external controller (e.g. an off-peak deficit optimiser) can trigger grid battery charging without touching `charge_from_mains`. Turning it ON pins timed-charge section 1 to a full-day window (`00:00`-`23:59`, registers `0xE026`/`0xE027`) before enabling `0xE02C`, so the charge is always active for as long as the switch stays on; turning it OFF just clears `0xE02C`. The actual charge rate is still controlled by the existing **Mains Charge Current** number — this switch only gates whether the inverter's timed-charge feature is running. Also adds a **Timed Charge Window** diagnostic sensor showing the configured section-1 start/end times.
+- **Watch for:** timed charge and `charge_from_mains` are independent registers (`0xE02C` vs `0xE205`) and don't fight each other, but both gate grid charging — leaving one on while flipping the other off may not stop charging if the other is still permissive. Timed charge also doesn't touch `output_priority` (SBU/UTI/SOL); if the system is on SBU, grid charging can still proceed per the charger-priority setting, but SBU load-serving behavior is unaffected by this switch.
+
 ## 1.1.8
 
 - Fix **Charger Priority** writes in parallel systems: the setting is now written only to the master unit instead of all units. Writing to non-master inverters in a parallel group is ignored by the hardware and could cause conflicts; the master propagates the mode to subordinate units automatically.

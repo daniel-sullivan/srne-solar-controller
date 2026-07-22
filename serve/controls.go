@@ -82,6 +82,40 @@ var controlSwitches = []controlSwitch{
 			}
 		},
 	},
+	{
+		Key:  "timed_charge_enable",
+		Name: "Timed Charge (Grid)",
+		Icon: "mdi:clock-check-outline",
+		// Backed by the TIMED-CHARGE feature (section 1, 0xE026/0xE027) driven full-day
+		// (00:00-23:59) so it's always active whenever enabled — the actual charge rate
+		// is controlled separately by the Mains Charge Current number. This lets the
+		// energy-optimiser trigger grid charging via a single boolean without touching
+		// charge_from_mains (0xE205), which stays available as an independent kill switch.
+		StateFunc: func(s *inverter.Settings) string {
+			if s.Timed.ChargeEnabled {
+				return "ON"
+			}
+			return "OFF"
+		},
+		CommandFunc: func(ctx context.Context, hub *Hub, payload string) error {
+			switch payload {
+			case "ON":
+				// Pin section 1 to the full day before enabling, so the window is
+				// always correct regardless of what it was last set to.
+				if err := hub.WriteSetting(ctx, "charge_start_time_1", "00:00"); err != nil {
+					return err
+				}
+				if err := hub.WriteSetting(ctx, "charge_end_time_1", "23:59"); err != nil {
+					return err
+				}
+				return hub.WriteSetting(ctx, "timed_charge_enable", "1")
+			case "OFF":
+				return hub.WriteSetting(ctx, "timed_charge_enable", "0")
+			default:
+				return fmt.Errorf("invalid switch payload: %q", payload)
+			}
+		},
+	},
 }
 
 var controlNumbers = []controlNumber{
@@ -157,6 +191,13 @@ var controlDiagnostics = []controlDiagnostic{
 		Key: "charge_source_selection", Name: "Charge Source Selection (0xE04D)", Icon: "mdi:battery-charging",
 		StateFunc: func(s *inverter.Settings) string {
 			return fmt.Sprintf("%d", s.Inverter.ChargeSourceSelection)
+		},
+	},
+	{
+		Key: "timed_charge_section1_window", Name: "Timed Charge Window (0xE026-0xE027)", Icon: "mdi:clock-outline",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[0]
+			return fmt.Sprintf("%02d:%02d-%02d:%02d", p.StartHour, p.StartMinute, p.EndHour, p.EndMinute)
 		},
 	},
 }

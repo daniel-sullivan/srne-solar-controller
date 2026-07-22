@@ -366,7 +366,7 @@ func TestMQTTControlRoundTrip(t *testing.T) {
 			} `json:"switches"`
 		}
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &entities))
-		require.Len(t, entities.Switches, 1)
+		require.Len(t, entities.Switches, len(controlSwitches))
 		assert.Equal(t, "ON", entities.Switches[0].State)
 
 		// ON restores the prior non-zero AC charge current limit (the sim seeds
