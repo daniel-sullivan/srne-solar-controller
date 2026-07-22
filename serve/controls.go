@@ -50,6 +50,16 @@ type controlDiagnostic struct {
 	StateFunc func(*inverter.Settings) string
 }
 
+// controlText defines a Home Assistant text entity for free-form string settings
+// (currently just "HH:MM" time-of-day fields, which have no dedicated HA number/select shape).
+type controlText struct {
+	Key       string
+	Name      string
+	Icon      string
+	Field     string // WriteSetting field name
+	StateFunc func(*inverter.Settings) string
+}
+
 var controlSwitches = []controlSwitch{
 	{
 		Key:  "charge_from_mains",
@@ -86,9 +96,9 @@ var controlSwitches = []controlSwitch{
 		Key:  "timed_charge_enable",
 		Name: "Timed Charge (Grid)",
 		Icon: "mdi:clock-check-outline",
-		// Backed by the TIMED-CHARGE feature (section 1, 0xE026/0xE027) driven full-day
-		// (00:00-23:59) so it's always active whenever enabled — the actual charge rate
-		// is controlled separately by the Mains Charge Current number. This lets the
+		// Backed by the global TIMED-CHARGE enable (0xE02C) — a single on/off switch
+		// covering all 3 charge windows, whose start/end times are configured
+		// independently via the timed_charge_window_* text entities. This lets the
 		// energy-optimiser trigger grid charging via a single boolean without touching
 		// charge_from_mains (0xE205), which stays available as an independent kill switch.
 		StateFunc: func(s *inverter.Settings) string {
@@ -100,14 +110,6 @@ var controlSwitches = []controlSwitch{
 		CommandFunc: func(ctx context.Context, hub *Hub, payload string) error {
 			switch payload {
 			case "ON":
-				// Pin section 1 to the full day before enabling, so the window is
-				// always correct regardless of what it was last set to.
-				if err := hub.WriteSetting(ctx, "charge_start_time_1", "00:00"); err != nil {
-					return err
-				}
-				if err := hub.WriteSetting(ctx, "charge_end_time_1", "23:59"); err != nil {
-					return err
-				}
 				return hub.WriteSetting(ctx, "timed_charge_enable", "1")
 			case "OFF":
 				return hub.WriteSetting(ctx, "timed_charge_enable", "0")
@@ -193,16 +195,64 @@ var controlDiagnostics = []controlDiagnostic{
 			return fmt.Sprintf("%d", s.Inverter.ChargeSourceSelection)
 		},
 	},
+}
+
+// controlTexts are settable "HH:MM" time-of-day fields, published as HA text
+// entities. They configure the 3 timed-charge windows gated by the
+// timed_charge_enable switch above (0xE02C is a single global enable — there is
+// no per-window enable register).
+var controlTexts = []controlText{
 	{
-		Key: "timed_charge_section1_window", Name: "Timed Charge Window (0xE026-0xE027)", Icon: "mdi:clock-outline",
+		Key: "timed_charge_window_1_start", Name: "Charge Window 1 Start", Icon: "mdi:clock-start",
+		Field: "charge_start_time_1",
 		StateFunc: func(s *inverter.Settings) string {
 			p := s.Timed.ChargePeriods[0]
-			return fmt.Sprintf("%02d:%02d-%02d:%02d", p.StartHour, p.StartMinute, p.EndHour, p.EndMinute)
+			return fmt.Sprintf("%02d:%02d", p.StartHour, p.StartMinute)
+		},
+	},
+	{
+		Key: "timed_charge_window_1_end", Name: "Charge Window 1 End", Icon: "mdi:clock-end",
+		Field: "charge_end_time_1",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[0]
+			return fmt.Sprintf("%02d:%02d", p.EndHour, p.EndMinute)
+		},
+	},
+	{
+		Key: "timed_charge_window_2_start", Name: "Charge Window 2 Start", Icon: "mdi:clock-start",
+		Field: "charge_start_time_2",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[1]
+			return fmt.Sprintf("%02d:%02d", p.StartHour, p.StartMinute)
+		},
+	},
+	{
+		Key: "timed_charge_window_2_end", Name: "Charge Window 2 End", Icon: "mdi:clock-end",
+		Field: "charge_end_time_2",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[1]
+			return fmt.Sprintf("%02d:%02d", p.EndHour, p.EndMinute)
+		},
+	},
+	{
+		Key: "timed_charge_window_3_start", Name: "Charge Window 3 Start", Icon: "mdi:clock-start",
+		Field: "charge_start_time_3",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[2]
+			return fmt.Sprintf("%02d:%02d", p.StartHour, p.StartMinute)
+		},
+	},
+	{
+		Key: "timed_charge_window_3_end", Name: "Charge Window 3 End", Icon: "mdi:clock-end",
+		Field: "charge_end_time_3",
+		StateFunc: func(s *inverter.Settings) string {
+			p := s.Timed.ChargePeriods[2]
+			return fmt.Sprintf("%02d:%02d", p.EndHour, p.EndMinute)
 		},
 	},
 }
 
-// executeControl routes a control command by key. It handles switches, numbers, and selects.
+// executeControl routes a control command by key. It handles switches, numbers, selects, and texts.
 func executeControl(ctx context.Context, hub *Hub, key, value string) error {
 	if sw := findSwitch(key); sw != nil {
 		return sw.CommandFunc(ctx, hub, value)
@@ -218,6 +268,9 @@ func executeControl(ctx context.Context, hub *Hub, key, value string) error {
 			}
 		}
 		return fmt.Errorf("invalid option %q for %s", value, key)
+	}
+	if txt := findText(key); txt != nil {
+		return hub.WriteSetting(ctx, txt.Field, value)
 	}
 	return fmt.Errorf("unknown control: %q", key)
 }
@@ -247,6 +300,15 @@ func findSelect(key string) *controlSelect {
 	for i := range controlSelects {
 		if controlSelects[i].Key == key {
 			return &controlSelects[i]
+		}
+	}
+	return nil
+}
+
+func findText(key string) *controlText {
+	for i := range controlTexts {
+		if controlTexts[i].Key == key {
+			return &controlTexts[i]
 		}
 	}
 	return nil

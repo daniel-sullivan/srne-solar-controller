@@ -315,6 +315,13 @@ func (ws *WebServer) handleAPIEntities(w http.ResponseWriter, _ *http.Request) {
 		Options []string `json:"options"`
 		Value   string   `json:"value"`
 	}
+	type textEntity struct {
+		Key   string `json:"key"`
+		Name  string `json:"name"`
+		Icon  string `json:"icon,omitempty"`
+		Field string `json:"field"`
+		Value string `json:"value"`
+	}
 
 	sensors := make([]sensorEntity, 0, len(systemSensors))
 	for _, s := range systemSensors {
@@ -364,11 +371,21 @@ func (ws *WebServer) handleAPIEntities(w http.ResponseWriter, _ *http.Request) {
 		})
 	}
 
+	texts := make([]textEntity, 0, len(controlTexts))
+	for _, txt := range controlTexts {
+		value := ""
+		if settings != nil {
+			value = txt.StateFunc(settings)
+		}
+		texts = append(texts, textEntity{Key: txt.Key, Name: txt.Name, Icon: txt.Icon, Field: txt.Field, Value: value})
+	}
+
 	resp := map[string]any{
 		"sensors":  sensors,
 		"switches": switches,
 		"numbers":  numbers,
 		"selects":  selects,
+		"texts":    texts,
 	}
 	_ = json.NewEncoder(w).Encode(resp)
 }

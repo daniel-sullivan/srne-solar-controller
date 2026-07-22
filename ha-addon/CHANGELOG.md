@@ -1,9 +1,10 @@
 # Changelog
 
-## 1.1.9
+## 1.1.10
 
-- Add a **Timed Charge (Grid)** switch (`switch.timed_charge_enable`, register `0xE02C`) so an external controller (e.g. an off-peak optimiser) can trigger grid battery charging without touching the charger-priority setting. Turning it ON pins timed-charge section 1 to a full-day window (`00:00`–`23:59`) then enables `0xE02C`; turning it OFF clears `0xE02C` only. Charge rate is still governed by **Mains Charge Current** — this switch only gates whether the inverter's timed-charge feature is active. Note: `timed_charge_enable` and `charge_from_mains` are independent registers, so leaving one enabled while disabling the other may not stop grid charging.
-- Add a **Timed Charge Window** diagnostic sensor showing the configured section-1 start/end times.
+- Add a **Timed Charge (Grid)** switch (`switch.timed_charge_enable`, register `0xE02C`) so an external controller (e.g. an off-peak deficit optimiser) can trigger grid battery charging via the inverter's built-in timed-charge feature, without touching the charger-priority setting. This is a single global enable — `0xE02C` covers all 3 charge windows, there's no per-window enable register.
+- Add six **Charge Window N Start/End** text entities (`text.timed_charge_window_1_start` … `_3_end`, `HH:MM`, registers `0xE026`–`0xE031`) so the 3 timed-charge windows' start/end times are independently configurable from Home Assistant, separate from the enable switch. Charge rate is still governed by the existing **Mains Charge Current** number.
+- Note: `timed_charge_enable` and `charge_from_mains` are independent registers (`0xE02C` vs `0xE205`) and don't fight each other, but both gate grid charging — leaving one enabled while disabling the other may not stop grid charging by itself.
 
 ## 1.1.8
 

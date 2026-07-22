@@ -472,6 +472,24 @@ func (p *MQTTPublisher) publishControlDiscovery() {
 		data, _ := json.Marshal(payload)
 		p.client.Publish(configTopic, 1, true, data)
 	}
+
+	// Texts (settable "HH:MM" fields)
+	for _, txt := range controlTexts {
+		configTopic := fmt.Sprintf("%s/text/%s/%s/config", p.prefix, deviceID, txt.Key)
+		payload := map[string]any{
+			"name":               txt.Name,
+			"unique_id":          fmt.Sprintf("%s_%s", deviceID, txt.Key),
+			"command_topic":      fmt.Sprintf("%s/text/%s/%s/set", p.prefix, deviceID, txt.Key),
+			"state_topic":        fmt.Sprintf("%s/text/%s/%s/state", p.prefix, deviceID, txt.Key),
+			"pattern":            `^([01]\d|2[0-3]):[0-5]\d$`,
+			"mode":               "text",
+			"availability_topic": availTopic,
+			"device":             device,
+			"icon":               txt.Icon,
+		}
+		data, _ := json.Marshal(payload)
+		p.client.Publish(configTopic, 1, true, data)
+	}
 }
 
 func (p *MQTTPublisher) subscribeControls(c mqtt.Client) {
@@ -525,6 +543,10 @@ func (p *MQTTPublisher) publishControlState() {
 	for _, diag := range controlDiagnostics {
 		topic := fmt.Sprintf("%s/sensor/%s/%s/state", p.prefix, deviceID, diag.Key)
 		p.client.Publish(topic, 0, true, diag.StateFunc(settings))
+	}
+	for _, txt := range controlTexts {
+		topic := fmt.Sprintf("%s/text/%s/%s/state", p.prefix, deviceID, txt.Key)
+		p.client.Publish(topic, 0, true, txt.StateFunc(settings))
 	}
 }
 
