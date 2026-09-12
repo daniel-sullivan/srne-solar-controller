@@ -1,9 +1,12 @@
 # Changelog
 
-## Unreleased
+## 1.2.0
 
 - Add a read-only Battery Bank view with all 16 cell voltages per reporting pack, per-pack cell spread, and live pack-to-pack and bank-wide cell deltas. Missing, stale, and unmonitored packs remain visibly unavailable.
 - Add JBD UP16S RS485 monitoring and a manual, staged battery-conditioning cycle for this installation's two parallel inverters. Charging is limited to 10 A per inverter, with verified restoration of each prior charge profile after stop or fault.
+- Add `bms_serial_device` add-on option (e.g. `/dev/ttyUSB0`) to configure the JBD RS485 adapter path; the Battery Bank view and conditioning cycle are unavailable without it.
+- Add Home Assistant MQTT entities for the conditioning cycle: `switch.battery_conditioning` to start/stop the cycle from HA automations, and sensors for the current stage, target voltage, restore-pending flag, and unmonitored pack count.
+- Conditioning engine state (active cycle and backed-up charge profile) is persisted to `/data/conditioning-state.json` and survives add-on restarts and HA reboots without losing the prior profile.
 
 ## 1.1.10
 
