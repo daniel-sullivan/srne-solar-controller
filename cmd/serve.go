@@ -2,13 +2,16 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/daniel-sullivan/srne-solar-controller/bms/interpack"
 	"github.com/daniel-sullivan/srne-solar-controller/interfaces/mock"
 	"github.com/daniel-sullivan/srne-solar-controller/interfaces/solarman"
 	"github.com/daniel-sullivan/srne-solar-controller/inverter"
@@ -46,14 +49,40 @@ func runServe(_ *cobra.Command, _ []string) error {
 		"settings_refresh", settingsRefresh,
 		"web_port", cfg.Server.WebPort,
 		"mqtt", cfg.MQTT != nil,
+		"bms", cfg.BMS != nil,
+		"conditioning", cfg.Conditioning != nil,
 	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
+	hubCtx, stopHub := context.WithCancel(context.Background())
+	defer stopHub()
 
 	// Create hub and web server immediately so the UI is available during startup
 	hub := serve.NewHub(nil, pollInterval, settingsRefresh)
 	webServer := serve.NewWebServer(hub, nil)
+	var bmsStore *interpack.Store
+
+	if cfg.BMS != nil && cfg.BMS.SerialDevice != "" {
+		bmsStore = &interpack.Store{}
+		webServer.SetBMS(bmsStore, cfg.BMS)
+		go interpack.Run(ctx, cfg.BMS.SerialDevice, bmsStore.Record, bmsStore.RecordSettings)
+		slog.Info("bms monitor started", "device", cfg.BMS.SerialDevice)
+	}
+
+	var conditioner *serve.ConditioningService
+	if cfg.Conditioning != nil {
+		conditioner = serve.NewConditioningService(hub, bmsStore, cfg.Conditioning.StateFile)
+		webServer.SetConditioning(conditioner)
+		// Claim the write path before the web server or inverter hub becomes
+		// available when a prior session's journal needs restoration.
+		if _, err := os.Stat(cfg.Conditioning.StateFile); err == nil || !errors.Is(err, os.ErrNotExist) {
+			conditioner.ExpectRecovery()
+			if err := hub.ReserveConditioning(); err != nil {
+				return fmt.Errorf("reserve conditioning recovery: %w", err)
+			}
+		}
+	}
 
 	mpptLabels := make(map[string][2]string, len(cfg.Inverters))
 	for _, inv := range cfg.Inverters {
@@ -118,7 +147,21 @@ func runServe(_ *cobra.Command, _ []string) error {
 	// Wire up the system to the hub and web server, start polling
 	hub.SetSystem(system)
 	webServer.SetSystem(system)
-	go hub.Run(ctx)
+	go hub.Run(hubCtx)
+
+	var stopConditioningTicks context.CancelFunc
+	if conditioner != nil {
+		recoverCtx, cancelRecovery := context.WithTimeout(context.Background(), 2*time.Minute)
+		if err := conditioner.Recover(recoverCtx); err != nil {
+			slog.Error("conditioning restoration pending", "error", err)
+		}
+		cancelRecovery()
+
+		tickCtx, cancelTicks := context.WithCancel(hubCtx)
+		defer cancelTicks()
+		stopConditioningTicks = cancelTicks
+		go runConditioningTicks(tickCtx, conditioner)
+	}
 
 	// Start MQTT if configured
 	if cfg.MQTT != nil {
@@ -126,14 +169,55 @@ func runServe(_ *cobra.Command, _ []string) error {
 		if mqttErr != nil {
 			return fmt.Errorf("mqtt: %w", mqttErr)
 		}
+		if conditioner != nil {
+			pub.SetConditioning(conditioner)
+		}
 		go pub.Run(ctx)
 		slog.Info("mqtt publisher started", "broker", cfg.MQTT.Broker, "prefix", cfg.MQTT.TopicPrefix)
 	}
 
 	// Block until shutdown
 	<-ctx.Done()
+	if stopConditioningTicks != nil {
+		stopConditioningTicks()
+	}
+	if conditioner != nil {
+		restoreCtx, cancelRestore := context.WithTimeout(context.Background(), 2*time.Minute)
+		if err := conditioner.Stop(restoreCtx); err != nil {
+			slog.Error("conditioning restoration remains pending on shutdown", "error", err)
+		}
+		cancelRestore()
+	}
+	stopHub()
 	slog.Info("shutdown complete")
 	return nil
+}
+
+func runConditioningTicks(ctx context.Context, conditioner *serve.ConditioningService) {
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case now := <-ticker.C:
+			status := conditioner.Status()
+			if !status.Active && !status.RestorePending {
+				continue
+			}
+			operationCtx, cancel := context.WithTimeout(ctx, 90*time.Second)
+			var err error
+			if status.RestorePending && !status.Active {
+				err = conditioner.Recover(operationCtx)
+			} else {
+				err = conditioner.Tick(operationCtx, now)
+			}
+			cancel()
+			if err != nil {
+				slog.Warn("conditioning update or restoration pending", "error", err)
+			}
+		}
+	}
 }
 
 func buildServeClient(index int, inv serve.InverterConfig) (modbus.Client, error) {

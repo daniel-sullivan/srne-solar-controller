@@ -18,3 +18,12 @@ slave_id = 2
 # broker = "tcp://localhost:1883"
 # client_id = "srne"
 # topic_prefix = "homeassistant"
+
+# Uncomment to enable the optional JBD UP16S inter-pack BMS serial monitor.
+# [bms]
+# serial_device = "/dev/ttyUSB0"
+
+# Manual conditioning requires the JBD monitor above and this durable journal.
+# It is specific to the ten-pack, two-inverter bank and starts only on command.
+# [conditioning]
+# state_file = "/data/conditioning-state.json"

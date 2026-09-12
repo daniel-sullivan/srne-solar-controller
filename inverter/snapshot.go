@@ -36,7 +36,7 @@ type UnitSnapshot struct {
 type BatteryData struct {
 	SOC              float64 `json:"soc"`             // %
 	Voltage          float64 `json:"voltage"`         // V
-	Current          float64 `json:"current"`         // A (signed: + = charging)
+	Current          float64 `json:"current"`         // A (signed: negative = charging, positive = discharging)
 	ControllerTemp   float64 `json:"controller_temp"` // °C
 	BatteryTemp      float64 `json:"battery_temp"`    // °C
 	ChargeStatus     uint16  `json:"charge_status"`

@@ -3,6 +3,7 @@ package serve
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -10,9 +11,11 @@ import (
 
 // Config is the top-level configuration for the serve command.
 type Config struct {
-	Server    ServerConfig     `toml:"server"`
-	Inverters []InverterConfig `toml:"inverter"`
-	MQTT      *MQTTConfig      `toml:"mqtt"`
+	Server       ServerConfig        `toml:"server"`
+	Inverters    []InverterConfig    `toml:"inverter"`
+	MQTT         *MQTTConfig         `toml:"mqtt"`
+	BMS          *BMSConfig          `toml:"bms"`
+	Conditioning *ConditioningConfig `toml:"conditioning"`
 }
 
 // ServerConfig controls the polling loop and web server.
@@ -40,6 +43,17 @@ type MQTTConfig struct {
 	Username    string `toml:"username"`
 	Password    string `toml:"password"`
 	TopicPrefix string `toml:"topic_prefix"`
+}
+
+// BMSConfig controls the optional JBD UP16S inter-pack BMS serial monitor (formerly labeled PACE). Optional — nil when omitted.
+type BMSConfig struct {
+	SerialDevice string `toml:"serial_device"`
+}
+
+// ConditioningConfig enables the manual conditioning controller and names its
+// durable restoration journal. The controller remains idle until manually started.
+type ConditioningConfig struct {
+	StateFile string `toml:"state_file"`
 }
 
 // Defaults.
@@ -114,6 +128,17 @@ func LoadConfig(path string) (*Config, error) {
 		}
 		if cfg.MQTT.TopicPrefix == "" {
 			cfg.MQTT.TopicPrefix = defaultTopicPrefix
+		}
+	}
+
+	if cfg.BMS != nil {
+		if cfg.BMS.SerialDevice == "" {
+			return nil, fmt.Errorf("config: bms.serial_device is required when [bms] is present")
+		}
+	}
+	if cfg.Conditioning != nil {
+		if cfg.Conditioning.StateFile == "" || !filepath.IsAbs(cfg.Conditioning.StateFile) {
+			return nil, fmt.Errorf("config: conditioning.state_file must be an absolute path")
 		}
 	}
 

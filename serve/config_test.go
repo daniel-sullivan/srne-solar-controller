@@ -131,3 +131,76 @@ host = "10.0.0.1"
 	_, err := LoadConfig(path)
 	assert.ErrorContains(t, err, "poll_interval")
 }
+
+func TestLoadConfig_BMSConfigured(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+
+[bms]
+serial_device = "/dev/ttyUSB0"
+`)
+	cfg, err := LoadConfig(path)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.BMS)
+	assert.Equal(t, "/dev/ttyUSB0", cfg.BMS.SerialDevice)
+}
+
+func TestLoadConfig_BMSMissingSerialDevice(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+
+[bms]
+`)
+	_, err := LoadConfig(path)
+	assert.ErrorContains(t, err, "bms.serial_device is required when [bms] is present")
+
+	pathEmpty := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+
+[bms]
+serial_device = ""
+`)
+	_, err = LoadConfig(pathEmpty)
+	assert.ErrorContains(t, err, "bms.serial_device is required when [bms] is present")
+}
+
+func TestLoadConfig_BMSOmitted(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+`)
+	cfg, err := LoadConfig(path)
+	require.NoError(t, err)
+	assert.Nil(t, cfg.BMS)
+	assert.Nil(t, cfg.Conditioning)
+}
+
+func TestLoadConfig_ConditioningJournalPath(t *testing.T) {
+	path := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+
+[bms]
+serial_device = "/dev/ttyUSB0"
+
+[conditioning]
+state_file = "/data/conditioning-state.json"
+`)
+	cfg, err := LoadConfig(path)
+	require.NoError(t, err)
+	require.NotNil(t, cfg.Conditioning)
+	assert.Equal(t, "/data/conditioning-state.json", cfg.Conditioning.StateFile)
+
+	bad := writeConfig(t, `
+[[inverter]]
+host = "10.0.0.1"
+
+[conditioning]
+state_file = "relative.json"
+`)
+	_, err = LoadConfig(bad)
+	assert.ErrorContains(t, err, "conditioning.state_file must be an absolute path")
+}

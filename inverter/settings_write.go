@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/daniel-sullivan/srne-solar-controller/register"
 )
@@ -60,6 +61,28 @@ func encodeBool(value string) (uint16, error) {
 	}
 }
 
+func encodeBMSComm(value string) (uint16, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "0", "false", "off", "disable", "disabled":
+		return 0, nil
+	case "1", "rs485":
+		return 1, nil
+	case "2", "can":
+		return 2, nil
+	case "true", "on":
+		return 1, nil
+	default:
+		i, err := strconv.ParseUint(value, 10, 16)
+		if err != nil {
+			return 0, fmt.Errorf("invalid bms_communication_en %q: expected 0 (disabled), 1 (RS485), or 2 (CAN)", value)
+		}
+		if i > 2 {
+			return 0, fmt.Errorf("invalid bms_communication_en %d: expected 0, 1, or 2", i)
+		}
+		return uint16(i), nil
+	}
+}
+
 // encodeTime packs "HH:MM" into a uint16 (high byte = hour, low byte = minute).
 func encodeTime(value string) (uint16, error) {
 	var h, m int
@@ -109,17 +132,19 @@ var settingFields = map[string]settingField{
 	"derate_power":             {Addr: register.AddrDeratePower, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},
 
 	// Toggles
-	"parallel_mode":          {Addr: register.AddrParallelMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"power_saving_mode":      {Addr: register.AddrPowerSavingMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"overload_auto_restart":  {Addr: register.AddrOverloadAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"over_temp_auto_restart": {Addr: register.AddrOverTempAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"overload_bypass_enable": {Addr: register.AddrOverloadBypassEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"alarm_enable":           {Addr: register.AddrAlarmEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"bms_communication_en":   {Addr: register.AddrBMSCommunicationEn, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"bms_error_stop_enable":  {Addr: register.AddrBMSErrorStopEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"record_fault_enable":    {Addr: register.AddrRecordFaultEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"timed_charge_enable":    {Addr: register.AddrTimedChargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
-	"timed_discharge_enable": {Addr: register.AddrTimedDischargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"parallel_mode":            {Addr: register.AddrParallelMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"power_saving_mode":        {Addr: register.AddrPowerSavingMode, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"overload_auto_restart":    {Addr: register.AddrOverloadAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"over_temp_auto_restart":   {Addr: register.AddrOverTempAutoRestart, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"overload_bypass_enable":   {Addr: register.AddrOverloadBypassEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"alarm_enable":             {Addr: register.AddrAlarmEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"bms_communication_en":     {Addr: register.AddrBMSCommunicationEn, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBMSComm(v) }},
+	"bms_error_stop_enable":    {Addr: register.AddrBMSErrorStopEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"equalizing_charge_en":     {Addr: register.AddrEqualizingChargeEn, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"equalizing_charge_enable": {Addr: register.AddrEqualizingChargeEn, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"record_fault_enable":      {Addr: register.AddrRecordFaultEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"timed_charge_enable":      {Addr: register.AddrTimedChargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
+	"timed_discharge_enable":   {Addr: register.AddrTimedDischargeEnable, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeBool(v) }},
 
 	// Battery system
 	"nominal_capacity":        {Addr: register.AddrNominalBatteryCapAH, EncodeFunc: func(v string, _ float64) (uint16, error) { return encodeInt(v) }},

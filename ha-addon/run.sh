@@ -40,6 +40,25 @@ EOF
     fi
 done
 
+# --- Optional JBD inter-pack serial monitor ---
+if bashio::config.has_value 'bms_serial_device'; then
+    BMS_SERIAL_DEVICE=$(bashio::config 'bms_serial_device')
+    if [ -n "${BMS_SERIAL_DEVICE}" ]; then
+        cat >> "${CONFIG}" <<EOF
+
+[bms]
+serial_device = "${BMS_SERIAL_DEVICE}"
+EOF
+    fi
+fi
+
+# Keep restoration available even if the BMS adapter is later removed.
+cat >> "${CONFIG}" <<EOF
+
+[conditioning]
+state_file = "/data/conditioning-state.json"
+EOF
+
 # --- MQTT section (required for HA auto-discovery) ---
 MQTT_BROKER=""
 MQTT_USER=""

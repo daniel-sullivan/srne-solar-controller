@@ -5,6 +5,10 @@
     {{template "settings-content" .}}
 {{else if eq .Page "faults"}}
     {{template "faults-content" .}}
+{{else if eq .Page "bank"}}
+    {{template "bank-content" .}}
+{{else if eq .Page "conditioning"}}
+    {{template "conditioning-content" .}}
 {{else}}
     {{template "dashboard-content" .}}
 {{end}}

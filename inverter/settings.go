@@ -102,6 +102,7 @@ type InverterSettings struct {
 	ChargeSourceSelection uint16  `json:"charge_source_selection"`  // 0xE04D (firmware V1.96+); read-only diagnostic
 	MaxChargeCurrent      float64 `json:"max_charge_current"`       // A
 	MainsChargeCurrentLim float64 `json:"mains_charge_current_lim"` // A
+	EqualizingChargeEn    uint16  `json:"equalizing_charge_en"`
 
 	// Power limits
 	DeratePower    float64 `json:"derate_power"`     // W
@@ -273,6 +274,7 @@ func readInverterSettings(s *modbus.Session, inv *InverterSettings) {
 	inv.ChargeSourceSelection, _ = s.Lookup(register.AddrChargeSourceSelection)
 	inv.MaxChargeCurrent = readScaled(s, register.AddrMaxChargeCurrent, register.Mul01)
 	inv.MainsChargeCurrentLim = readScaled(s, register.AddrMainsChargeCurrentLim, register.Mul01)
+	inv.EqualizingChargeEn, _ = s.Lookup(register.AddrEqualizingChargeEn)
 
 	inv.DeratePower = readScaled(s, register.AddrDeratePower, nil)
 	inv.MaxLineCurrent = readScaled(s, register.AddrMaxLineCurrent, register.Mul01)

@@ -43,6 +43,14 @@
                 <i>warning</i>
                 <span>Faults</span>
             </a>
+            <a href="bank" class="top-bar-tab{{if eq .Page "bank"}} active{{end}}">
+                <i>battery_full</i>
+                <span>Bank</span>
+            </a>
+            <a href="conditioning" class="top-bar-tab{{if eq .Page "conditioning"}} active{{end}}">
+                <i>battery_charging_full</i>
+                <span>Conditioning</span>
+            </a>
         </nav>
         <button id="theme-toggle" class="circle transparent" title="Toggle theme" aria-label="Toggle theme">
             <i id="theme-toggle-icon">dark_mode</i>

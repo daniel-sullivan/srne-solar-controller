@@ -2,6 +2,7 @@ package serve
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"sync"
@@ -10,6 +11,14 @@ import (
 	"github.com/daniel-sullivan/srne-solar-controller/inverter"
 	"github.com/daniel-sullivan/srne-solar-controller/register"
 )
+
+// ErrConditioningReserved indicates that a manual conditioning transaction has
+// exclusive ownership of inverter settings writes.
+var ErrConditioningReserved = errors.New("battery conditioning reservation active")
+
+// ErrSystemNotReady indicates that the hub has not been given an inverter
+// system yet.
+var ErrSystemNotReady = errors.New("system not ready")
 
 // Subscriber receives snapshots from the hub.
 type Subscriber struct {
@@ -35,6 +44,13 @@ type faultsResult struct {
 	err    error
 }
 
+type conditioningRequest struct {
+	ctx    context.Context
+	fn     func(context.Context, *inverter.System) error
+	claim  chan struct{}
+	result chan error
+}
+
 // Hub polls the inverter system and fans out snapshots to subscribers.
 // All MODBUS communication is serialized through the hub's run loop.
 type Hub struct {
@@ -47,8 +63,10 @@ type Hub struct {
 	settings    *inverter.Settings
 	subscribers map[*Subscriber]struct{}
 
-	writeCh  chan writeRequest
-	faultsCh chan faultsRequest
+	writeCh              chan writeRequest
+	faultsCh             chan faultsRequest
+	conditioningCh       chan conditioningRequest
+	conditioningReserved bool
 
 	// Virtual switch state: last non-zero AC charge current limit (0xE205) so the
 	// charge_from_mains toggle can restore it when switched back ON.
@@ -70,6 +88,57 @@ func NewHub(system *inverter.System, pollInterval, settingsRefresh time.Duration
 		subscribers:     make(map[*Subscriber]struct{}),
 		writeCh:         make(chan writeRequest, 8),
 		faultsCh:        make(chan faultsRequest, 4),
+		conditioningCh:  make(chan conditioningRequest, 2),
+	}
+}
+
+// ReserveConditioning claims exclusive ownership of inverter settings writes.
+// The reservation is immediate, so a write already queued in writeCh will be
+// rejected when the run loop reaches it. Read-only polling and fault reads are
+// unaffected. The caller must release the reservation after verified restore.
+func (h *Hub) ReserveConditioning() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.conditioningReserved {
+		return ErrConditioningReserved
+	}
+	h.conditioningReserved = true
+	return nil
+}
+
+// ReleaseConditioning releases the conditioning write reservation. It is safe
+// to call more than once, which simplifies deferred recovery paths.
+func (h *Hub) ReleaseConditioning() {
+	h.mu.Lock()
+	h.conditioningReserved = false
+	h.mu.Unlock()
+}
+
+// WithConditioning runs an internal conditioning transaction on the hub's run
+// loop. The callback is the only path allowed to perform verified per-unit
+// writes while a reservation is held. It is serialized with polling and normal
+// settings writes, and a canceled request is discarded before its callback is
+// invoked.
+func (h *Hub) WithConditioning(ctx context.Context, fn func(context.Context, *inverter.System) error) error {
+	if fn == nil {
+		return errors.New("conditioning callback is nil")
+	}
+	req := conditioningRequest{ctx: ctx, fn: fn, claim: make(chan struct{}), result: make(chan error, 1)}
+	select {
+	case h.conditioningCh <- req:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	select {
+	case <-req.claim:
+		// Once the run loop claims a callback, wait for its actual completion.
+		// Returning on client cancellation here could release the reservation
+		// while a Modbus write was still in flight.
+		return <-req.result
+	case err := <-req.result:
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
 	}
 }
 
@@ -216,8 +285,43 @@ func (h *Hub) Run(ctx context.Context) {
 			h.handleWrite(ctx, req)
 		case req := <-h.faultsCh:
 			h.handleReadFaults(ctx, req)
+		case req := <-h.conditioningCh:
+			h.handleConditioning(ctx, req)
 		}
 	}
+}
+
+func (h *Hub) handleConditioning(runCtx context.Context, req conditioningRequest) {
+	if err := runCtx.Err(); err != nil {
+		req.result <- err
+		return
+	}
+	if err := req.ctx.Err(); err != nil {
+		req.result <- err
+		return
+	}
+	h.mu.RLock()
+	sys := h.system
+	reserved := h.conditioningReserved
+	h.mu.RUnlock()
+	if !reserved {
+		req.result <- ErrConditioningReserved
+		return
+	}
+	if sys == nil {
+		req.result <- ErrSystemNotReady
+		return
+	}
+	select {
+	case req.claim <- struct{}{}:
+	case <-req.ctx.Done():
+		req.result <- req.ctx.Err()
+		return
+	case <-runCtx.Done():
+		req.result <- runCtx.Err()
+		return
+	}
+	req.result <- req.fn(req.ctx, sys)
 }
 
 func (h *Hub) handleReadFaults(ctx context.Context, req faultsRequest) {
@@ -226,7 +330,7 @@ func (h *Hub) handleReadFaults(ctx context.Context, req faultsRequest) {
 	h.mu.RUnlock()
 
 	if sys == nil {
-		req.result <- faultsResult{err: fmt.Errorf("system not ready")}
+		req.result <- faultsResult{err: ErrSystemNotReady}
 		return
 	}
 
@@ -236,11 +340,18 @@ func (h *Hub) handleReadFaults(ctx context.Context, req faultsRequest) {
 
 func (h *Hub) handleWrite(ctx context.Context, req writeRequest) {
 	h.mu.RLock()
+	reserved := h.conditioningReserved
+	h.mu.RUnlock()
+	if reserved {
+		req.result <- ErrConditioningReserved
+		return
+	}
+	h.mu.RLock()
 	sys := h.system
 	h.mu.RUnlock()
 
 	if sys == nil {
-		req.result <- fmt.Errorf("system not ready")
+		req.result <- ErrSystemNotReady
 		return
 	}
 

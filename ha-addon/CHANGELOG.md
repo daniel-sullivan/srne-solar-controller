@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- Add a read-only Battery Bank view with all 16 cell voltages per reporting pack, per-pack cell spread, and live pack-to-pack and bank-wide cell deltas. Missing, stale, and unmonitored packs remain visibly unavailable.
+- Add JBD UP16S RS485 monitoring and a manual, staged battery-conditioning cycle for this installation's two parallel inverters. Charging is limited to 10 A per inverter, with verified restoration of each prior charge profile after stop or fault.
+
 ## 1.1.10
 
 - Add a **Timed Charge (Grid)** switch (`switch.timed_charge_enable`, register `0xE02C`) so an external controller (e.g. an off-peak deficit optimiser) can trigger grid battery charging via the inverter's built-in timed-charge feature, without touching the charger-priority setting. This is a single global enable — `0xE02C` covers all 3 charge windows, there's no per-window enable register.

@@ -1,0 +1,132 @@
+{{define "bank-content"}}
+<section class="bank-view" aria-labelledby="bank-title">
+    <h5 id="bank-title" class="small"><i>battery_full</i><span>Battery Bank</span></h5>
+    <p class="small-text">Read-only cell telemetry. Cell voltage is shown as measured and does not indicate state of charge or battery health.</p>
+    <p class="small-text">Outlines mark the lowest and highest cell within each reporting pack; they are comparisons, not alarm indicators.</p>
+    <div id="bank-status" class="bank-alert" role="status" aria-live="polite">Loading BMS telemetry…</div>
+    <div id="bank-summary" class="bank-summary" aria-label="Bank voltage summary" hidden></div>
+    <div id="bank-packs" class="bank-packs" aria-live="polite"></div>
+    <div id="bank-empty" class="bank-alert" hidden></div>
+</section>
+<script>
+(function () {
+    "use strict";
+    var status = document.getElementById("bank-status");
+    var summary = document.getElementById("bank-summary");
+    var packsNode = document.getElementById("bank-packs");
+    var empty = document.getElementById("bank-empty");
+    var intervalMs = 15000;
+    var expectedAddresses = [0, 1, 2, 3, 4, 5, 6, 7, 9];
+
+    function text(tag, value, className) {
+        var node = document.createElement(tag);
+        if (className) node.className = className;
+        node.textContent = value;
+        return node;
+    }
+    function validNumber(value) { return typeof value === "number" && Number.isFinite(value); }
+    function mv(value) { return Number.isInteger(value) && value >= 1000 && value <= 5000 ? value : null; }
+    function packCV(value) { return Number.isInteger(value) && value > 0 ? value : null; }
+    function volts(value) { return (value / 100).toFixed(2) + " V"; }
+    function millivolts(value) { return value == null ? "—" : value + " mV"; }
+    function delta(value) { return value == null ? "—" : value + " mV"; }
+    function seenAt(value) {
+        var date = typeof value === "string" ? new Date(value) : null;
+        return date && Number.isFinite(date.getTime()) && date.getTime() > 0 ? date.toLocaleString() : "Unknown";
+    }
+    function valuesFor(pack) {
+        var frame = pack && pack.Frame;
+        var cells = frame && Array.isArray(frame.CellMillivolts) ? frame.CellMillivolts : [];
+        var valid = cells.map(mv).filter(function (value) { return value != null; });
+        return {frame: frame, cells: cells, valid: valid,
+            min: valid.length ? Math.min.apply(null, valid) : null,
+            max: valid.length ? Math.max.apply(null, valid) : null};
+    }
+    function stat(label, value) {
+        var item = document.createElement("div");
+        item.appendChild(text("span", label, "secondary-text"));
+        item.appendChild(text("strong", value));
+        return item;
+    }
+    function renderSummary(packs) {
+        summary.replaceChildren();
+        var live = packs.map(function (pack) { return {pack: pack || {}, data: valuesFor(pack)}; })
+            .filter(function (entry) { return entry.pack.Fresh === true && entry.pack.Confirmed === true; });
+        var packVoltsCV = live.map(function (entry) { return packCV(entry.data.frame && entry.data.frame.PackVoltageCentivolts); }).filter(function (v) { return v != null; });
+        var cellMv = [];
+        live.forEach(function (entry) { cellMv = cellMv.concat(entry.data.valid); });
+        if (!live.length) { summary.hidden = true; return; }
+        // Pack voltage is reported in centivolts; a 1 cV difference is 10 mV.
+        var packDelta = packVoltsCV.length > 1 ? (Math.max.apply(null, packVoltsCV) - Math.min.apply(null, packVoltsCV)) * 10 : null;
+        var cellMin = cellMv.length ? Math.min.apply(null, cellMv) : null;
+        var cellMax = cellMv.length ? Math.max.apply(null, cellMv) : null;
+        var grid = document.createElement("div"); grid.className = "bank-summary-grid";
+        grid.appendChild(stat("Live packs", live.length + " / " + packs.length + " reporting"));
+        grid.appendChild(stat("Live pack-to-pack delta", packDelta == null ? "—" : delta(packDelta)));
+        grid.appendChild(stat("Lowest cell", millivolts(cellMin)));
+        grid.appendChild(stat("Highest cell", millivolts(cellMax)));
+        grid.appendChild(stat("Live bank cell delta", cellMin == null ? "—" : delta(cellMax - cellMin)));
+        summary.appendChild(grid); summary.hidden = false;
+    }
+    function renderPack(pack, index) {
+        var data = valuesFor(pack), frame = data.frame || {}, live = pack.Fresh === true && pack.Confirmed === true;
+        var card = document.createElement("article"); card.className = "bank-pack" + (live ? " bank-pack-live" : " bank-pack-stale") + (pack.IdentityUncertain === true ? " bank-pack-uncertain" : "");
+        var heading = document.createElement("div"); heading.className = "bank-pack-heading";
+        heading.appendChild(text("h6", validNumber(frame.Address) ? "RS485 address " + frame.Address : "Unidentified pack " + (index + 1)));
+        var state = pack.Fresh !== true ? "STALE" : (pack.Confirmed !== true ? "UNCONFIRMED" : (pack.IdentityUncertain === true ? "LIVE · ID UNCERTAIN" : "LIVE"));
+        var badge = text("span", state, "chip small bank-state"); badge.setAttribute("aria-label", "Telemetry status: " + state.toLowerCase()); heading.appendChild(badge); card.appendChild(heading);
+        var metrics = document.createElement("div"); metrics.className = "bank-pack-metrics";
+        metrics.appendChild(stat("Pack voltage", live && packCV(frame.PackVoltageCentivolts) != null ? volts(frame.PackVoltageCentivolts) : "Unavailable"));
+        metrics.appendChild(stat("Cell min / max", live ? millivolts(data.min) + " / " + millivolts(data.max) : "Unavailable"));
+        metrics.appendChild(stat("Cell delta", live && data.min != null ? delta(data.max - data.min) : "Unavailable"));
+        metrics.appendChild(stat("Last report", seenAt(pack.SeenAt))); card.appendChild(metrics);
+        var legend = text("div", "Cells (mV)", "secondary-text bank-cell-legend"); legend.id = "pack-" + index + "-cells"; card.appendChild(legend);
+        var cells = document.createElement("div"); cells.className = "bank-cells"; cells.setAttribute("role", "list"); cells.setAttribute("aria-labelledby", legend.id);
+        for (var i = 0; i < 16; i++) { var cell = document.createElement("div"), value = mv(data.cells[i]); cell.className = "bank-cell" + (live && value != null ? "" : " bank-cell-unavailable"); if (live && value != null && data.min !== data.max) { if (value === data.min) cell.classList.add("bank-cell-low"); if (value === data.max) cell.classList.add("bank-cell-high"); } cell.setAttribute("role", "listitem"); cell.appendChild(text("span", "Cell " + (i + 1), "bank-cell-label")); cell.appendChild(text("strong", live ? millivolts(value) : "Unavailable")); cells.appendChild(cell); }
+        card.appendChild(cells); return card;
+    }
+    function unavailablePack(title, note, state) {
+        var card = document.createElement("article"); card.className = "bank-pack bank-pack-stale";
+        var heading = document.createElement("div"); heading.className = "bank-pack-heading";
+        heading.appendChild(text("h6", title));
+        heading.appendChild(text("span", state, "chip small bank-state")); card.appendChild(heading);
+        card.appendChild(text("p", note, "small-text"));
+        var cells = document.createElement("div"); cells.className = "bank-cells"; cells.setAttribute("role", "list"); cells.setAttribute("aria-label", title + " cells");
+        for (var i = 0; i < 16; i++) { var cell = document.createElement("div"); cell.className = "bank-cell bank-cell-unavailable"; cell.setAttribute("role", "listitem"); cell.appendChild(text("span", "Cell " + (i + 1), "bank-cell-label")); cell.appendChild(text("strong", "Unavailable")); cells.appendChild(cell); }
+        card.appendChild(cells); return card;
+    }
+    function render(body) {
+        if (!body || typeof body !== "object") throw new Error("invalid BMS response");
+        var packs = Array.isArray(body.packs) ? body.packs : [];
+        renderSummary(packs); packsNode.replaceChildren();
+        if (body.configured && body.observed) {
+            var byAddress = new Map(), extras = [];
+            packs.forEach(function (pack) {
+                var address = pack && pack.Frame && pack.Frame.Address;
+                if (expectedAddresses.indexOf(address) >= 0) byAddress.set(address, pack);
+                else extras.push(pack);
+            });
+            expectedAddresses.forEach(function (address) {
+                if (byAddress.has(address)) packsNode.appendChild(renderPack(byAddress.get(address), address));
+                else packsNode.appendChild(unavailablePack("RS485 address " + address, "No report has been received from this expected BMS address.", "NO DATA"));
+            });
+            extras.forEach(function (pack, index) { packsNode.appendChild(renderPack(pack || {}, expectedAddresses.length + index)); });
+            packsNode.appendChild(unavailablePack("Unmonitored connected pack", "This pack is connected to the bank, but its BMS does not answer on the RS485 bus. Its cells and pack voltage cannot be shown.", "NO RS485 DATA"));
+        }
+        var connected = validNumber(body.total_packs) ? body.total_packs : packs.length;
+        var fresh = validNumber(body.fresh_packs) ? body.fresh_packs : 0;
+        status.className = "bank-alert" + (body.status === "stale" || body.status === "unconfirmed" ? " bank-alert-warning" : "");
+        if (body.status === "disabled") { status.textContent = "BMS monitoring is disabled."; empty.hidden = true; }
+        else if (body.status === "unseen") { status.textContent = "BMS is configured, but no pack telemetry has been observed yet."; empty.hidden = true; }
+        else { status.textContent = fresh + " fresh / " + connected + " reporting packs. 9 expected reporters / 10 connected packs; one pack is unmonitored and its cells are not visible here."; empty.hidden = true; }
+        if (!packs.length) { empty.textContent = "No pack reports are available."; empty.hidden = false; }
+    }
+    function refresh() {
+        fetch("api/bms", {headers: {"Accept": "application/json"}}).then(function (response) {
+            if (!response.ok) throw new Error("BMS request failed"); return response.json();
+        }).then(render).catch(function (error) { status.className = "bank-alert bank-alert-warning"; status.textContent = "Unable to load BMS telemetry: " + error.message; summary.hidden = true; packsNode.replaceChildren(); empty.hidden = true; });
+    }
+    refresh(); window.setInterval(refresh, intervalMs);
+})();
+</script>
+{{end}}

@@ -6,7 +6,7 @@
 
 Monitor and control SRNE ASP/ASF-series hybrid inverters via MODBUS over Solarman V5 wifi dongles.
 
-Integrates with Home Assistant through MQTT auto-discovery, providing ~65 sensor entities and 7 writable controls. Also includes a live web dashboard and CLI for direct register access. Supports multi-inverter parallel systems with aggregated data and synchronized settings writes.
+Integrates with Home Assistant through MQTT auto-discovery, providing sensor and control entities. Also includes a live web dashboard and CLI for direct register access. Supports multi-inverter parallel systems with aggregated data and synchronized settings writes.
 
 ## Home Assistant Add-on
 
@@ -41,7 +41,7 @@ Start the add-on. Sensor and control entities appear automatically under the MQT
 
 **Sensors (~65 entities):** Battery SOC, voltage, current, power, temperature. PV1/PV2 voltage, current, power. Load power, apparent power, power factor. Grid voltage, current, frequency per phase (L1/L2). Inverter state, bus voltage, heatsink temperatures. Daily and lifetime energy statistics.
 
-**Controls (7 entities):**
+**Controls:**
 
 | Entity | Type | Description |
 |---|---|---|
@@ -52,10 +52,31 @@ Start the add-on. Sensor and control entities appear automatically under the MQT
 | Discharge Cutoff SOC | Number | Hard minimum battery SOC (0-100%) |
 | SOC Switch to Mains | Number | Switch to grid power below this SOC (0-100%) |
 | SOC Switch to Battery | Number | Switch back to battery above this SOC (0-100%) |
+| Battery Conditioning | Switch | Manually start or stop the staged two-inverter balance cycle when the JBD monitor is configured. |
 
 ### Web Dashboard
 
 The add-on includes a web dashboard accessible via the HA sidebar (ingress). It provides real-time monitoring with live-updating panels and a full settings editor for all inverter parameters.
+
+The **Bank** page shows each reporting pack's 16 cell voltages, pack voltage, lowest/highest cell, and within-pack cell delta. Its summary compares the lowest and highest reporting pack voltages and cells. Stale readings are marked unavailable and excluded from the live deltas. The tenth connected pack has a separate unavailable card because its BMS does not report over RS485.
+
+### Manual battery conditioning
+
+The Conditioning page provides a manual balance cycle for the installed bank of ten 48 V/100 Ah 16-cell packs and two parallel SRNE inverters. It requires the JBD UP16S RS485 monitor and a persistent restoration journal. Nine packs currently report on RS485 (addresses 0–7 and 9); the tenth remains connected but its RS485 telemetry is unavailable. Its local BMS protection still operates, but the controller cannot observe its cells or certify its balance.
+
+The cycle temporarily suspends inverter CAN BMS communication, caps **each** inverter at **10 A** (nominal **20 A total**), and holds 54.4 V, 54.8 V, then 55.2 V. It advances after at least 30 minutes at each measured voltage when every monitored pack has at most 30 mV cell spread. At 55.2 V it completes only after all monitored cells are at least 3.4 V, every pack has at most 20 mV spread, and combined charge current remains at or below 10 A for 30 minutes. A monitored cell reaching 3.55 V, a BMS alarm, stale telemetry/settings, or the 8-hour limit stops the cycle. On stop or fault, the service restores each inverter’s saved voltage, equalization, CAN, and charge-current settings; an unfinished restoration remains in the journal for retry on restart.
+
+For standalone use, configure both sections before starting the service:
+
+```toml
+[bms]
+serial_device = "/dev/ttyUSB0"
+
+[conditioning]
+state_file = "/data/conditioning-state.json"
+```
+
+The Home Assistant add-on always keeps `/data/conditioning-state.json` available for restoration. Starting a new cycle also requires `bms_serial_device`. The cycle never starts automatically.
 
 ## Supported Hardware
 
@@ -145,6 +166,10 @@ Global flags: `--host` (required), `--port` (default 8899), `--serial` (auto-det
 | `/api/faults` | GET | Fault history records |
 | `/api/entities` | GET | All entity metadata (sensors + controls) with current state |
 | `/api/controls/{key}` | POST | Write a control value (`{"value": "..."}`) |
+| `/api/bms` | GET | Read-only JBD pack telemetry and settings |
+| `/api/conditioning` | GET | Manual conditioning and restoration status |
+| `/api/conditioning/start` | POST | Explicitly start a conditioning cycle after safety checks |
+| `/api/conditioning/stop` | POST | Stop and restore saved inverter settings |
 
 ## Architecture
 
@@ -159,6 +184,8 @@ CLI/API -> modbus.Session (cache + retry) -> modbus.Client -> Solarman V5 (TCP:8
 | `interfaces/mock/` | Mock inverter and live simulator for testing |
 | `register/` | Register definitions, context-aware scaling (`ScaleFunc`), fault code lookup |
 | `inverter/` | Multi-inverter system management, typed snapshots, aggregation, settings encoding |
+| `bms/interpack/` | Read-only JBD UP16S RS485 telemetry and installed settings |
+| `conditioning/` | Deterministic staged-CV decisions and safety gates |
 | `serve/` | Polling hub, MQTT publisher with HA control entities, web dashboard (HTMX/SSE), REST API |
 | `cmd/` | Cobra CLI: `read`, `write`, `dump`, `info`, `scan`, `probe`, `serve` |
 

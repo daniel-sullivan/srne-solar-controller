@@ -5,6 +5,9 @@ configuration:
   poll_interval:
     name: Poll Interval
     description: How often to read data from inverters, in seconds.
+  bms_serial_device:
+    name: JBD BMS Serial Device
+    description: Serial path for read-only cell telemetry on the Battery Bank tab.
   mqtt_enabled:
     name: Enable MQTT
     description: Publish sensor data via MQTT with Home Assistant auto-discovery.

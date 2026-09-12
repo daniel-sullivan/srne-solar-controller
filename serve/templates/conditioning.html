@@ -1,0 +1,108 @@
+{{define "conditioning-content"}}
+<h5 class="small">
+    <i>battery_charging_full</i>
+    <span>Battery Conditioning</span>
+</h5>
+<article class="conditioning-card">
+    <div id="conditioning-action-status" class="conditioning-alert" role="status" hidden></div>
+    {{if and (not .Conditioning.Enabled) (not .Conditioning.RestorePending)}}
+    <div class="row"><i class="warning">warning</i><strong>Conditioning is disabled</strong></div>
+    <p class="small-text">Configure a conditioning state file and restart the service to enable this manual mode.</p>
+    {{else}}
+    {{$c := .Conditioning}}
+    {{$e := $c.Engine}}
+    <div class="grid">
+        <div class="s12 m6">
+            <h6>Status <span id="conditioning-state" class="chip small">{{$e.State}}</span></h6>
+            <p id="conditioning-reason" class="small-text">{{$c.Reason}}</p>
+        </div>
+        <div class="s12 m6 right-align">
+            {{if or $c.Active $c.RestorePending}}
+            <form method="post" action="api/conditioning/stop" class="inline-form conditioning-action">
+                <button class="error" type="submit"><i>stop</i> Stop and restore</button>
+            </form>
+            {{else}}
+            <form method="post" action="api/conditioning/start" class="inline-form conditioning-action">
+                <button class="primary" type="submit" {{if not $c.Ready}}disabled{{end}}><i>play_arrow</i> Start conditioning</button>
+            </form>
+            {{end}}
+        </div>
+    </div>
+    {{if and (not $c.Ready) (not $c.Active) (not $c.RestorePending)}}
+    <div class="conditioning-alert" role="status">Start is unavailable until the two inverters and all nine monitored packs pass the preflight checks. {{$c.Reason}}</div>
+    {{end}}
+    {{if $c.RestorePending}}
+    <div class="conditioning-alert error-text" role="alert"><i>priority_high</i> Restoration pending. Charging remains under the safety transaction until the saved settings are restored.</div>
+    {{end}}
+    {{if $e.Terminal}}
+    <div class="conditioning-alert" role="status">{{$e.Reason}}</div>
+    {{end}}
+    <div class="grid">
+        <div class="s12 m6 l3"><span class="secondary-text">Stage</span><br><strong id="conditioning-stage">{{$e.Stage}}</strong></div>
+        <div class="s12 m6 l3"><span class="secondary-text">CV target</span><br><strong id="conditioning-target">{{$e.TargetVoltageVolts}} V</strong></div>
+        <div class="s12 m6 l3"><span class="secondary-text">Measured bank</span><br><strong id="conditioning-bank">{{$e.BankVoltageVolts}} V</strong></div>
+        <div class="s12 m6 l3"><span class="secondary-text">Charge current</span><br><strong id="conditioning-current">{{$e.InverterCurrentAmps}} A</strong></div>
+    </div>
+    <div class="conditioning-topology">
+        <strong>Charging limits</strong>: two SRNE in parallel, <strong>10 A each</strong> (20 A nominal bank limit).<br>
+        <strong>Battery visibility</strong>: 9 monitored / 10 connected. <span class="error-text">1 connected pack is unmonitored over RS485; its local BMS protection remains active, but its cells are not visible here.</span>
+    </div>
+    {{end}}
+</article>
+<script>
+(function () {
+    var statusURL = "api/conditioning";
+    var actionMessage = document.getElementById("conditioning-action-status");
+    var initialActive = {{if .Conditioning.Active}}true{{else}}false{{end}};
+    var initialPending = {{if .Conditioning.RestorePending}}true{{else}}false{{end}};
+    function show(message, isError) {
+        actionMessage.hidden = !message;
+        actionMessage.textContent = message || "";
+        actionMessage.classList.toggle("error-text", !!isError);
+    }
+    document.querySelectorAll(".conditioning-action").forEach(function (form) {
+        form.addEventListener("submit", function (event) {
+            event.preventDefault();
+            var button = form.querySelector("button");
+            button.disabled = true;
+            show("Applying conditioning request…", false);
+            fetch(form.action, {method: "POST", headers: {"Accept": "application/json"}})
+                .then(function (response) {
+                    return response.json().then(function (body) {
+                        if (!response.ok) throw new Error(body.error || "conditioning request failed");
+                        return body;
+                    });
+                })
+                .then(function () { window.location.reload(); })
+                .catch(function (error) { show(error.message, true); button.disabled = false; });
+        });
+    });
+    function refresh() {
+        fetch(statusURL, {headers: {"Accept": "application/json"}})
+            .then(function (response) { return response.json(); })
+            .then(function (state) {
+                if (state.active !== initialActive || state.restore_pending !== initialPending) {
+                    window.location.reload();
+                    return;
+                }
+                var engine = state.engine || {};
+                var values = {
+                    "conditioning-state": engine.state,
+                    "conditioning-reason": state.reason,
+                    "conditioning-stage": engine.stage,
+                    "conditioning-target": engine.target_voltage_volts == null ? null : engine.target_voltage_volts + " V",
+                    "conditioning-bank": engine.bank_voltage_volts == null ? null : engine.bank_voltage_volts + " V",
+                    "conditioning-current": engine.inverter_current_amps == null ? null : engine.inverter_current_amps + " A"
+                };
+                Object.keys(values).forEach(function (id) {
+                    var node = document.getElementById(id);
+                    if (node && values[id] != null) node.textContent = values[id];
+                });
+                if (state.restore_pending) show("Restoration pending — saved inverter settings are being restored.", true);
+            })
+            .catch(function () { /* transient status failures do not disrupt the page */ });
+    }
+    window.setInterval(refresh, 15000);
+})();
+</script>
+{{end}}

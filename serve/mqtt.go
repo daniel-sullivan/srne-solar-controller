@@ -3,9 +3,11 @@ package serve
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -187,11 +189,39 @@ var unitSensors = []sensorDef{
 
 // MQTTPublisher publishes snapshots to an MQTT broker with HA auto-discovery.
 type MQTTPublisher struct {
-	client     mqtt.Client
-	prefix     string
-	hub        *Hub
-	unitInfos  []inverter.UnitInfo
-	mpptLabels map[string][2]string // host -> [mppt1, mppt2] display labels
+	client         mqtt.Client
+	prefix         string
+	hub            *Hub
+	unitInfos      []inverter.UnitInfo
+	mpptLabels     map[string][2]string // host -> [mppt1, mppt2] display labels
+	conditioningMu sync.RWMutex
+	conditioning   MQTTConditioningController
+}
+
+// MQTTConditioningController is the manual lifecycle used by Home Assistant.
+type MQTTConditioningController interface {
+	Start(context.Context) error
+	Stop(context.Context) error
+	Status() ConditioningServiceStatus
+}
+
+// SetConditioning publishes the manual control after the controller is wired.
+// NewMQTTPublisher connects before callers can set it, so discovery is also
+// republished here rather than waiting for a broker reconnect.
+func (p *MQTTPublisher) SetConditioning(controller MQTTConditioningController) {
+	p.conditioningMu.Lock()
+	p.conditioning = controller
+	p.conditioningMu.Unlock()
+	if controller != nil && p.client != nil {
+		p.publishConditioningDiscovery()
+		p.publishConditioningState()
+	}
+}
+
+func (p *MQTTPublisher) conditioningController() MQTTConditioningController {
+	p.conditioningMu.RLock()
+	defer p.conditioningMu.RUnlock()
+	return p.conditioning
 }
 
 // NewMQTTPublisher creates and connects an MQTT publisher.
@@ -251,6 +281,8 @@ func NewMQTTPublisher(cfg *MQTTConfig, hub *Hub, unitInfos []inverter.UnitInfo, 
 func (p *MQTTPublisher) Run(ctx context.Context) {
 	sub := p.hub.Subscribe()
 	defer p.hub.Unsubscribe(sub)
+	conditioningTicker := time.NewTicker(5 * time.Second)
+	defer conditioningTicker.Stop()
 
 	for {
 		select {
@@ -264,6 +296,8 @@ func (p *MQTTPublisher) Run(ctx context.Context) {
 			}
 			p.publishState(snap)
 			p.publishControlState()
+		case <-conditioningTicker.C:
+			p.publishConditioningState()
 		}
 	}
 }
@@ -317,6 +351,7 @@ func (p *MQTTPublisher) publishDiscovery() {
 
 	// Control entities (switches, numbers, selects)
 	p.publishControlDiscovery()
+	p.publishConditioningDiscovery()
 }
 
 func (p *MQTTPublisher) publishUnitDiscovery(info inverter.UnitInfo) {
@@ -492,6 +527,91 @@ func (p *MQTTPublisher) publishControlDiscovery() {
 	}
 }
 
+func (p *MQTTPublisher) publishConditioningDiscovery() {
+	controller := p.conditioningController()
+	if controller == nil || p.client == nil || !controller.Status().Enabled {
+		return
+	}
+	deviceID := "srne_system"
+	device := map[string]any{
+		"identifiers": []string{deviceID}, "name": "SRNE Solar System", "manufacturer": "SRNE",
+	}
+	avail := fmt.Sprintf("%s/sensor/%s/availability", p.prefix, deviceID)
+	switchTopic := fmt.Sprintf("%s/switch/%s/battery_conditioning", p.prefix, deviceID)
+	switchConfig := map[string]any{
+		"name": "Battery Conditioning", "unique_id": "srne_system_battery_conditioning",
+		"command_topic": switchTopic + "/set", "state_topic": switchTopic + "/state",
+		"payload_on": "ON", "payload_off": "OFF", "availability_topic": avail,
+		"device": device, "icon": "mdi:battery-heart-variant",
+	}
+	data, _ := json.Marshal(switchConfig)
+	p.client.Publish(switchTopic+"/config", 1, true, data)
+
+	stateTopic := fmt.Sprintf("%s/sensor/%s/conditioning/state", p.prefix, deviceID)
+	sensors := []struct{ key, name, value, icon, unit string }{
+		{"conditioning_stage", "Conditioning Stage", "engine.stage", "mdi:battery-clock", ""},
+		{"conditioning_target_voltage", "Conditioning Target Voltage", "engine.target_voltage_volts", "mdi:flash", "V"},
+		{"conditioning_restore_pending", "Conditioning Restore Pending", "restore_pending", "mdi:backup-restore", ""},
+		{"conditioning_unmonitored_packs", "Conditioning Unmonitored Packs", "engine.unmonitored_packs", "mdi:battery-alert", ""},
+	}
+	for _, sensor := range sensors {
+		configTopic := fmt.Sprintf("%s/sensor/%s/%s/config", p.prefix, deviceID, sensor.key)
+		payload := map[string]any{
+			"name": sensor.name, "unique_id": "srne_system_" + sensor.key,
+			"state_topic": stateTopic, "value_template": "{{ value_json." + sensor.value + " }}",
+			"availability_topic": avail, "device": device, "icon": sensor.icon,
+		}
+		if sensor.unit != "" {
+			payload["unit_of_measurement"] = sensor.unit
+		}
+		encoded, _ := json.Marshal(payload)
+		p.client.Publish(configTopic, 1, true, encoded)
+	}
+}
+
+func (p *MQTTPublisher) publishConditioningState() {
+	controller := p.conditioningController()
+	if controller == nil || p.client == nil {
+		return
+	}
+	status := controller.Status()
+	if !status.Enabled {
+		return
+	}
+	switchState := "OFF"
+	if status.Active {
+		switchState = "ON"
+	}
+	p.client.Publish(fmt.Sprintf("%s/switch/srne_system/battery_conditioning/state", p.prefix), 0, true, switchState)
+	data, err := json.Marshal(status)
+	if err != nil {
+		slog.Error("conditioning status marshal failed", "error", err)
+		return
+	}
+	p.client.Publish(fmt.Sprintf("%s/sensor/srne_system/conditioning/state", p.prefix), 0, true, data)
+}
+
+func (p *MQTTPublisher) handleConditioningCommand(payload string, retained bool) error {
+	if retained {
+		// A retained ON command must never restart charging after reconnect.
+		return nil
+	}
+	controller := p.conditioningController()
+	if controller == nil || !controller.Status().Enabled {
+		return errors.New("battery conditioning is disabled")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	defer cancel()
+	switch payload {
+	case "ON":
+		return controller.Start(ctx)
+	case "OFF":
+		return controller.Stop(ctx)
+	default:
+		return fmt.Errorf("invalid battery conditioning command %q", payload)
+	}
+}
+
 func (p *MQTTPublisher) subscribeControls(c mqtt.Client) {
 	deviceID := "srne_system"
 	topic := fmt.Sprintf("%s/+/%s/+/set", p.prefix, deviceID)
@@ -503,6 +623,16 @@ func (p *MQTTPublisher) subscribeControls(c mqtt.Client) {
 		}
 		key := parts[len(parts)-2]
 		payload := string(msg.Payload())
+		if key == "battery_conditioning" {
+			retained := msg.Retained()
+			go func() {
+				if err := p.handleConditioningCommand(payload, retained); err != nil {
+					slog.Error("mqtt conditioning command failed", "error", err)
+				}
+				p.publishConditioningState()
+			}()
+			return
+		}
 
 		slog.Info("mqtt control command", "key", key, "value", payload)
 

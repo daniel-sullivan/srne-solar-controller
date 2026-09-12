@@ -12,6 +12,7 @@ init: false
 startup: services
 timeout: 60
 host_network: true
+uart: true
 ingress: true
 ingress_port: 8099
 panel_icon: mdi:solar-power-variant
@@ -42,6 +43,7 @@ schema:
       mppt1_label: str?
       mppt2_label: str?
   poll_interval: "int(1,3600)"
+  bms_serial_device: "str?"
   mqtt_topic_prefix: str?
   mqtt_broker: url?
   mqtt_username: str?

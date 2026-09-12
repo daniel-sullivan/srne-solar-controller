@@ -38,6 +38,19 @@ and provide `mqtt_username`/`mqtt_password` if required.
 
 How often (in seconds) to read data from the inverters. Default: 10 seconds.
 
+### BMS (JBD UP16S Inter-pack Monitor)
+
+Optional serial monitor for the JBD UP16S inter-pack RS485 bus:
+
+- **bms_serial_device**: Serial port path for the inter-pack RS485 bus (e.g. `/dev/ttyUSB0`).
+  When set, the service reads inter-pack telemetry and BMS balance/protection settings via read-only queries, exposing them through `GET /api/bms`. Leave blank if no BMS serial adapter is connected.
+
+### Manual battery conditioning
+
+When the JBD monitor is configured, the Conditioning page offers a manual cycle for this installation’s two parallel SRNE inverters and ten connected 48 V/100 Ah packs. Each inverter is capped at **10 A** (nominal **20 A** combined). The controller holds 54.4 V, 54.8 V, then 55.2 V, using the nine reporting packs’ cell voltages and alarms to decide when to advance or stop. One connected pack does not report over RS485; its local BMS cutoff still operates, but its cell balance cannot be observed by this service.
+
+The add-on keeps the exact prior inverter settings in `/data/conditioning-state.json` before changing any settings. Manual stop, completion, a safety fault, or an 8-hour timeout triggers restoration. If a unit is unavailable, restoration remains pending and the journal is retained for retry. Do not remove that file while restoration is pending. The cycle does not start on add-on launch.
+
 ## Network
 
 This add-on uses **host networking** to communicate with Solarman dongles on your local
@@ -47,3 +60,9 @@ network. The dongles must be reachable from your Home Assistant host on port 889
 
 The dashboard is accessible via the Home Assistant sidebar (ingress). It shows real-time
 battery, PV, load, and grid data with automatic change highlighting.
+
+The **Bank** tab shows all 16 cells per reporting pack, each pack's cell spread,
+and live pack-to-pack and bank-wide cell voltage deltas. It keeps missing or stale
+packs visibly unavailable. The connected pack without RS485 data is shown as an
+unmonitored card with no invented cell readings. Configure `bms_serial_device`
+to populate this view.
