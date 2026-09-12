@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Fix the Battery Bank view showing every reporting pack as stale or unavailable despite fresh BMS telemetry. The page now reads the API's actual pack field names and displays live cell voltages and deltas.
+
 ## 1.2.0
 
 - Add a read-only Battery Bank view with all 16 cell voltages per reporting pack, per-pack cell spread, and live pack-to-pack and bank-wide cell deltas. Missing, stale, and unmonitored packs remain visibly unavailable.

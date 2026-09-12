@@ -35,7 +35,7 @@
         return date && Number.isFinite(date.getTime()) && date.getTime() > 0 ? date.toLocaleString() : "Unknown";
     }
     function valuesFor(pack) {
-        var frame = pack && pack.Frame;
+        var frame = pack && pack.frame;
         var cells = frame && Array.isArray(frame.CellMillivolts) ? frame.CellMillivolts : [];
         var valid = cells.map(mv).filter(function (value) { return value != null; });
         return {frame: frame, cells: cells, valid: valid,
@@ -51,7 +51,7 @@
     function renderSummary(packs) {
         summary.replaceChildren();
         var live = packs.map(function (pack) { return {pack: pack || {}, data: valuesFor(pack)}; })
-            .filter(function (entry) { return entry.pack.Fresh === true && entry.pack.Confirmed === true; });
+            .filter(function (entry) { return entry.pack.fresh === true && entry.pack.confirmed === true; });
         var packVoltsCV = live.map(function (entry) { return packCV(entry.data.frame && entry.data.frame.PackVoltageCentivolts); }).filter(function (v) { return v != null; });
         var cellMv = [];
         live.forEach(function (entry) { cellMv = cellMv.concat(entry.data.valid); });
@@ -69,17 +69,17 @@
         summary.appendChild(grid); summary.hidden = false;
     }
     function renderPack(pack, index) {
-        var data = valuesFor(pack), frame = data.frame || {}, live = pack.Fresh === true && pack.Confirmed === true;
-        var card = document.createElement("article"); card.className = "bank-pack" + (live ? " bank-pack-live" : " bank-pack-stale") + (pack.IdentityUncertain === true ? " bank-pack-uncertain" : "");
+        var data = valuesFor(pack), frame = data.frame || {}, live = pack.fresh === true && pack.confirmed === true;
+        var card = document.createElement("article"); card.className = "bank-pack" + (live ? " bank-pack-live" : " bank-pack-stale") + (pack.identity_uncertain === true ? " bank-pack-uncertain" : "");
         var heading = document.createElement("div"); heading.className = "bank-pack-heading";
         heading.appendChild(text("h6", validNumber(frame.Address) ? "RS485 address " + frame.Address : "Unidentified pack " + (index + 1)));
-        var state = pack.Fresh !== true ? "STALE" : (pack.Confirmed !== true ? "UNCONFIRMED" : (pack.IdentityUncertain === true ? "LIVE · ID UNCERTAIN" : "LIVE"));
+        var state = pack.fresh !== true ? "STALE" : (pack.confirmed !== true ? "UNCONFIRMED" : (pack.identity_uncertain === true ? "LIVE · ID UNCERTAIN" : "LIVE"));
         var badge = text("span", state, "chip small bank-state"); badge.setAttribute("aria-label", "Telemetry status: " + state.toLowerCase()); heading.appendChild(badge); card.appendChild(heading);
         var metrics = document.createElement("div"); metrics.className = "bank-pack-metrics";
         metrics.appendChild(stat("Pack voltage", live && packCV(frame.PackVoltageCentivolts) != null ? volts(frame.PackVoltageCentivolts) : "Unavailable"));
         metrics.appendChild(stat("Cell min / max", live ? millivolts(data.min) + " / " + millivolts(data.max) : "Unavailable"));
         metrics.appendChild(stat("Cell delta", live && data.min != null ? delta(data.max - data.min) : "Unavailable"));
-        metrics.appendChild(stat("Last report", seenAt(pack.SeenAt))); card.appendChild(metrics);
+        metrics.appendChild(stat("Last report", seenAt(pack.seen_at))); card.appendChild(metrics);
         var legend = text("div", "Cells (mV)", "secondary-text bank-cell-legend"); legend.id = "pack-" + index + "-cells"; card.appendChild(legend);
         var cells = document.createElement("div"); cells.className = "bank-cells"; cells.setAttribute("role", "list"); cells.setAttribute("aria-labelledby", legend.id);
         for (var i = 0; i < 16; i++) { var cell = document.createElement("div"), value = mv(data.cells[i]); cell.className = "bank-cell" + (live && value != null ? "" : " bank-cell-unavailable"); if (live && value != null && data.min !== data.max) { if (value === data.min) cell.classList.add("bank-cell-low"); if (value === data.max) cell.classList.add("bank-cell-high"); } cell.setAttribute("role", "listitem"); cell.appendChild(text("span", "Cell " + (i + 1), "bank-cell-label")); cell.appendChild(text("strong", live ? millivolts(value) : "Unavailable")); cells.appendChild(cell); }
@@ -102,7 +102,7 @@
         if (body.configured && body.observed) {
             var byAddress = new Map(), extras = [];
             packs.forEach(function (pack) {
-                var address = pack && pack.Frame && pack.Frame.Address;
+                var address = pack && pack.frame && pack.frame.Address;
                 if (expectedAddresses.indexOf(address) >= 0) byAddress.set(address, pack);
                 else extras.push(pack);
             });
